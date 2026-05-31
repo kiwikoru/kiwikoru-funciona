@@ -101,4 +101,48 @@ export const emailRouter = createRouter({
     )
     .mutation(async ({ input }) => {
       if (!resend) {
-        return { success: true,
+        return { success: true, message: "Mock mode" };
+      }
+
+      const attachments = input.files?.length
+        ? createAttachments(input.files)
+        : undefined;
+
+      // Email a TI (KiwiKoru) - CON adjuntos
+      await resend.emails.send({
+        from: `KiwiKoru 3D <${env.emailFrom}>`,
+        to: env.emailTo,
+        subject: `Contact Form: ${input.subject}`,
+        html: `
+          <h2>New Contact Form Submission</h2>
+          <p><strong>Name:</strong> ${input.name}</p>
+          <p><strong>Email:</strong> ${input.email}</p>
+          <p><strong>Phone:</strong> ${input.phone || "Not provided"}</p>
+          <p><strong>Subject:</strong> ${input.subject}</p>
+          <hr/>
+          <p>${input.message.replace(/\n/g, "<br/>")}</p>
+        `,
+        attachments,
+      });
+
+      // Email al CLIENTE - confirmación (SIN adjuntos)
+      await resend.emails.send({
+        from: `KiwiKoru 3D <${env.emailFrom}>`,
+        to: input.email,
+        subject: "We've Received Your Enquiry",
+        html: `
+          <h2>Thank you for contacting KiwiKoru 3D</h2>
+          <p>Hi ${input.name},</p>
+          <p>We have received your enquiry and will contact you shortly.</p>
+          <br/>
+          <p>Kind regards,</p>
+          <p>KiwiKoru 3D</p>
+        `,
+      });
+
+      return {
+        success: true,
+        message: "Message sent successfully",
+      };
+    }),
+});
