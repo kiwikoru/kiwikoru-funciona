@@ -1,13 +1,8 @@
 {
-  "functions": {
-    "api/boot.ts": {
-      "runtime": "@vercel/node"
-    }
-  },
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/boot.ts"
+      "source": "/api/:path*",
+      "destination": "/api/boot.ts"
     }
   ]
 }
