@@ -360,4 +360,18 @@ export default function Quote() {
               <button
                 type="submit"
                 disabled={!agreed || sendQuote.isPending}
-                className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-semibold py-3 px
+                className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-semibold py-3 px-6 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sendQuote.isPending ? "Sending..." : "Submit Quote Request"}
+              </button>
+
+              {submitMsg && !submitted && (
+                <p className="text-red-400 text-sm text-center">{submitMsg}</p>
+              )}
+            </form>
+          )}
+        </div>
+      </section>
+    </>
+  );
+}

@@ -23,7 +23,7 @@ export default function Contact() {
   const [submitted, setSubmitted] = useState(false);
   const [submitMsg, setSubmitMsg] = useState("");
   const [dragOver, setDragOver] = useState(false);
-  const fileInputRef = useRef<<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const sendContact = trpc.email.sendContact.useMutation({
     onSuccess: (data) => {
@@ -107,7 +107,7 @@ export default function Contact() {
             Contact Us
           </h1>
           <p className="text-gray-400">
-            Have a question or project in mind? We'd love to hear from you.
+            Have a question or project in mind? We&apos;d love to hear from you.
           </p>
         </div>
 
