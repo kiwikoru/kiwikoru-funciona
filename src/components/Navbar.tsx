@@ -51,7 +51,12 @@ export default function Navbar() {
       >
         <nav className="w-full max-w-[1200px] mx-auto px-6 flex items-center justify-between" aria-label="Main navigation">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2.5 focus-gold shrink-0" aria-label="KiwiKoru 3D Home">
+      <Link
+  to="/"
+  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+  className="flex items-center gap-2.5 focus-gold shrink-0"
+  aria-label="KiwiKoru 3D Home"
+>
             <img src="/images/logo.png" alt="" width="36" height="36" className="rounded-lg" style={{ objectFit: 'contain' }} />
             <span className="text-gold font-bold text-lg tracking-tight hidden sm:inline">KiwiKoru 3D</span>
           </Link>
