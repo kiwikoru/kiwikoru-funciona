@@ -8,7 +8,7 @@ interface UploadedFile {
   name: string;
   size: string;
   type: string;
-  file: File; // Guardamos el File original para convertir a base64
+  file: File;
 }
 
 export default function Contact() {
@@ -37,14 +37,12 @@ export default function Contact() {
     },
   });
 
-  // Convertir File a base64
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = () => {
         const result = reader.result as string;
-        // Removemos el prefijo "data:image/png;base64," y nos quedamos solo con el base64
         const base64 = result.split(",")[1];
         resolve(base64);
       };
@@ -77,7 +75,6 @@ export default function Contact() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Convertir archivos a base64
     const filesBase64 = await Promise.all(
       files.map(async (f) => ({
         name: f.name,
@@ -123,7 +120,6 @@ export default function Contact() {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Name */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Your Name *
@@ -138,7 +134,6 @@ export default function Contact() {
               />
             </div>
 
-            {/* Email */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Email Address *
@@ -153,7 +148,6 @@ export default function Contact() {
               />
             </div>
 
-            {/* Phone */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Phone (optional)
@@ -170,7 +164,6 @@ export default function Contact() {
               </div>
             </div>
 
-            {/* Subject */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Subject *
@@ -181,4 +174,94 @@ export default function Contact() {
                 value={formData.subject}
                 onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                 placeholder="How can we help?"
-                className="w-full border border-gray-
+                className="w-full border border-gray-700 bg-gray-900 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20 transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Your Message *
+              </label>
+              <textarea
+                required
+                rows={5}
+                value={formData.message}
+                onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                placeholder="Tell us about your project..."
+                className="w-full border border-gray-700 bg-gray-900 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20 transition-all resize-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Attach Files (optional)
+              </label>
+              <div
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all ${
+                  dragOver
+                    ? "border-yellow-500 bg-yellow-500/5"
+                    : "border-gray-700 hover:border-gray-500"
+                }`}
+              >
+                <Upload className="w-8 h-8 mx-auto mb-2 text-gray-500" />
+                <p className="text-sm text-gray-400">
+                  Drag & drop files here, or click to browse
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  PDF, JPG, PNG, STL up to 10MB
+                </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  onChange={(e) => handleFileSelect(e.target.files)}
+                  className="hidden"
+                />
+              </div>
+
+              {files.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {files.map((file) => (
+                    <div
+                      key={file.id}
+                      className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-yellow-500" />
+                        <span className="text-sm text-gray-300">{file.name}</span>
+                        <span className="text-xs text-gray-500">({file.size})</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeFile(file.id)}
+                        className="text-gray-500 hover:text-red-400 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={sendContact.isPending}
+              className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-semibold py-3 px-6 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {sendContact.isPending ? "Sending..." : "Send Message"}
+            </button>
+
+            {submitMsg && !submitted && (
+              <p className="text-red-400 text-sm text-center">{submitMsg}</p>
+            )}
+          </form>
+        )}
+      </div>
+    </>
+  );
+}
