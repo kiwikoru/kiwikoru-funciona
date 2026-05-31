@@ -1,216 +1,184 @@
-import { useState } from 'react'
-import { Mail, Phone, MapPin, MessageCircle, Send } from 'lucide-react'
-import ParticleCanvas from '../components/ParticleCanvas'
-import ScrollReveal from '../components/ScrollReveal'
-import SEO, { generateBreadcrumbSchema } from '../components/SEO'
+import { useState, useRef, useCallback } from "react";
+import { Upload, X, FileText, Phone } from "lucide-react";
+import { trpc } from "../lib/trpc";
+import SEO from "../components/SEO";
+
+interface UploadedFile {
+  id: string;
+  name: string;
+  size: string;
+  type: string;
+  file: File; // Guardamos el File original para convertir a base64
+}
 
 export default function Contact() {
-  const [formData, setFormData] = useState({ name: '', email: '', subject: 'General Inquiry', message: '' })
-  const [submitted, setSubmitted] = useState(false)
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    subject: "",
+    message: "",
+  });
+  const [files, setFiles] = useState<<UploadedFile[]>([]);
+  const [submitted, setSubmitted] = useState(false);
+  const [submitMsg, setSubmitMsg] = useState("");
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<<HTMLInputElement>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setSubmitted(true)
-    setTimeout(() => setSubmitted(false), 5000)
-    setFormData({ name: '', email: '', subject: 'General Inquiry', message: '' })
-  }
+  const sendContact = trpc.email.sendContact.useMutation({
+    onSuccess: (data) => {
+      setSubmitted(true);
+      setSubmitMsg(data.message);
+      setFormData({ name: "", email: "", phone: "", subject: "", message: "" });
+      setFiles([]);
+    },
+    onError: (error) => {
+      setSubmitMsg(error.message || "Failed to send. Please try again.");
+    },
+  });
 
-  const schema = generateBreadcrumbSchema([
-    { name: 'Home', url: 'https://kiwikoru3d.com/' },
-    { name: 'Contact', url: 'https://kiwikoru3d.com/contact' },
-  ])
+  // Convertir File a base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const result = reader.result as string;
+        // Removemos el prefijo "data:image/png;base64," y nos quedamos solo con el base64
+        const base64 = result.split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+    });
+  };
+
+  const handleFileSelect = useCallback((selectedFiles: FileList | null) => {
+    if (!selectedFiles) return;
+    const newFiles: UploadedFile[] = Array.from(selectedFiles).map((file) => ({
+      id: Math.random().toString(36).substring(7),
+      name: file.name,
+      size: file.size > 1024 * 1024
+        ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+        : `${(file.size / 1024).toFixed(0)} KB`,
+      type: file.name.split(".").pop()?.toUpperCase() || "",
+      file: file,
+    }));
+    setFiles((prev) => [...prev, ...newFiles]);
+  }, []);
+
+  const removeFile = (id: string) => setFiles((prev) => prev.filter((f) => f.id !== id));
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    handleFileSelect(e.dataTransfer.files);
+  }, [handleFileSelect]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Convertir archivos a base64
+    const filesBase64 = await Promise.all(
+      files.map(async (f) => ({
+        name: f.name,
+        type: f.file.type,
+        content: await fileToBase64(f.file),
+      }))
+    );
+
+    sendContact.mutate({
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone || undefined,
+      subject: formData.subject,
+      message: formData.message,
+      files: filesBase64.length > 0 ? filesBase64 : undefined,
+    });
+  };
 
   return (
     <>
       <SEO
-        title="Contact KiwiKoru 3D | 3D Printing Whangārei | Get a Quote"
-        description="Contact KiwiKoru 3D for custom 3D printing in New Zealand. Email, WhatsApp, or fill out our form. Based in Morningside, Whangārei. Fast response times."
-        path="/contact"
-        schema={schema}
+        title="Contact Us | KiwiKoru 3D"
+        description="Get in touch with KiwiKoru 3D for 3D printing, CAD design, and product development services in New Zealand."
+        url="https://kiwikoru3d.com/contact"
       />
 
-      {/* Hero */}
-      <section className="relative min-h-[320px] md:min-h-[40vh] bg-forest flex items-center justify-center" aria-label="Contact hero">
-        <ParticleCanvas count={15} />
-        <div className="relative z-10 text-center px-6 max-w-[500px]">
-          <ScrollReveal>
-            <h1 className="text-[36px] md:text-[48px] font-extrabold text-white leading-tight">
-              Get in Touch
-            </h1>
-          </ScrollReveal>
-          <ScrollReveal delay={0.15}>
-            <p className="mt-4 text-white/70 text-base leading-relaxed">
-              Have a question or ready to start your project? We'd love to hear from you.
-            </p>
-          </ScrollReveal>
+      <div className="pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-3xl mx-auto">
+        <div className="text-center mb-12">
+          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">
+            Contact Us
+          </h1>
+          <p className="text-gray-400">
+            Have a question or project in mind? We'd love to hear from you.
+          </p>
         </div>
-      </section>
 
-      {/* Contact Info + Form */}
-      <section className="bg-white py-[60px] md:py-[100px]" aria-label="Contact information and form">
-        <div className="max-w-[1200px] mx-auto px-6">
-          <div className="grid grid-cols-1 lg:grid-cols-[45%_55%] gap-12">
-            {/* Left — Contact Info */}
-            <ScrollReveal>
-              <div>
-                <h2 className="text-[28px] md:text-[36px] font-bold text-charcoal mb-6">
-                  Contact Information
-                </h2>
-
-                <ul className="space-y-5" role="list">
-                  <li>
-                    <a
-                      href="mailto:kiwikoru3d@gmail.com"
-                      className="flex items-center gap-3 text-charcoal hover:text-gold transition-colors duration-200 focus-gold"
-                    >
-                      <Mail size={20} className="text-gold shrink-0" />
-                      <span className="font-medium">kiwikoru3d@gmail.com</span>
-                    </a>
-                  </li>
-                  <li>
-                    <a
-                      href="tel:+640272602954"
-                      className="flex items-center gap-3 text-charcoal hover:text-gold transition-colors duration-200 focus-gold"
-                    >
-                      <Phone size={20} className="text-gold shrink-0" />
-                      <span className="font-medium">+64 027 260 2954</span>
-                    </a>
-                  </li>
-                  <li>
-                    <a
-                      href="https://wa.me/640272602954"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 text-gold hover:text-gold-light transition-colors duration-200 focus-gold"
-                    >
-                      <MessageCircle size={20} className="shrink-0" />
-                      <span className="font-medium">Message us on WhatsApp</span>
-                    </a>
-                  </li>
-                  <li>
-                    <span className="flex items-center gap-3 text-charcoal-light">
-                      <MapPin size={20} className="text-gold shrink-0" />
-                      Morningside, Whangārei, New Zealand
-                    </span>
-                  </li>
-                </ul>
-
-                <p className="mt-8 text-sm text-charcoal-light">
-                  We typically respond within 24 hours on business days.
-                </p>
-              </div>
-            </ScrollReveal>
-
-            {/* Right — Form */}
-            <ScrollReveal delay={0.2}>
-              <div className="bg-white border border-border-light rounded-xl p-8 md:p-10">
-                {submitted ? (
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 rounded-full bg-gold/15 flex items-center justify-center mx-auto mb-4">
-                      <Send size={28} className="text-gold" />
-                    </div>
-                    <h3 className="text-xl font-semibold text-charcoal">Message Sent!</h3>
-                    <p className="mt-2 text-sm text-charcoal-light">
-                      We'll respond within 24 hours. Thank you for reaching out.
-                    </p>
-                  </div>
-                ) : (
-                  <form onSubmit={handleSubmit} className="space-y-5">
-                    <div>
-                      <label htmlFor="contact-name" className="block text-sm font-medium text-charcoal mb-1.5">
-                        Your Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        id="contact-name"
-                        type="text"
-                        required
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        placeholder="John Smith"
-                        className="w-full border border-border-light rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20 transition-all"
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="contact-email" className="block text-sm font-medium text-charcoal mb-1.5">
-                        Email Address <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        id="contact-email"
-                        type="email"
-                        required
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        placeholder="john@example.com"
-                        className="w-full border border-border-light rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20 transition-all"
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="contact-subject" className="block text-sm font-medium text-charcoal mb-1.5">
-                        Subject
-                      </label>
-                      <select
-                        id="contact-subject"
-                        value={formData.subject}
-                        onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                        className="w-full border border-border-light rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20 transition-all bg-white"
-                      >
-                        <option>General Inquiry</option>
-                        <option>Quote Request</option>
-                        <option>File Upload Question</option>
-                        <option>Material Advice</option>
-                        <option>Order Status</option>
-                        <option>Other</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label htmlFor="contact-message" className="block text-sm font-medium text-charcoal mb-1.5">
-                        Your Message <span className="text-red-500">*</span>
-                      </label>
-                      <textarea
-                        id="contact-message"
-                        required
-                        rows={5}
-                        value={formData.message}
-                        onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                        placeholder="Tell us about your project..."
-                        className="w-full border border-border-light rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20 transition-all resize-vertical"
-                      />
-                    </div>
-
-                    <button
-                      type="submit"
-                      className="w-full bg-forest text-white font-semibold py-3.5 rounded-lg transition-all duration-200 hover:bg-forest-light focus-gold"
-                    >
-                      Send Message
-                    </button>
-                  </form>
-                )}
-              </div>
-            </ScrollReveal>
+        {submitted ? (
+          <div className="bg-green-900/20 border border-green-500/30 rounded-xl p-8 text-center">
+            <h3 className="text-xl font-semibold text-green-400 mb-2">
+              Message Sent!
+            </h3>
+            <p className="text-gray-300">{submitMsg}</p>
           </div>
-        </div>
-      </section>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Name */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Your Name *
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="John Smith"
+                className="w-full border border-gray-700 bg-gray-900 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20 transition-all"
+              />
+            </div>
 
-      {/* Location */}
-      <section className="bg-off-white py-[60px] md:py-[80px]" aria-label="Studio location">
-        <div className="max-w-[640px] mx-auto px-6 text-center">
-          <ScrollReveal>
-            <h2 className="text-[28px] md:text-[36px] font-bold text-charcoal">
-              Visit Our Studio
-            </h2>
-            <p className="mt-4 text-charcoal-light leading-relaxed">
-              We're based in Morningside, Whangārei. While we're primarily a print-to-order service,
-              local customers are welcome to arrange pickup of their finished parts.
-            </p>
-            <p className="mt-4 text-sm text-charcoal-light italic">
-              Exact address provided via email when your order is ready for collection.
-            </p>
-          </ScrollReveal>
-        </div>
-      </section>
-    </>
-  )
-}
+            {/* Email */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Email Address *
+              </label>
+              <input
+                type="email"
+                required
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="john@example.com"
+                className="w-full border border-gray-700 bg-gray-900 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20 transition-all"
+              />
+            </div>
+
+            {/* Phone */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Phone (optional)
+              </label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  placeholder="+64 21 123 4567"
+                  className="w-full border border-gray-700 bg-gray-900 rounded-lg pl-10 pr-4 py-3 text-sm text-white focus:outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20 transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Subject */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Subject *
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.subject}
+                onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                placeholder="How can we help?"
+                className="w-full border border-gray-
