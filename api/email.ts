@@ -7,7 +7,6 @@ const resend = env.resendApiKey
   ? new Resend(env.resendApiKey)
   : null;
 
-// Helper: convierte archivos base64 a formato de adjuntos de Resend
 function createAttachments(files: { name: string; type: string; content: string }[]) {
   return files.map((file) => ({
     filename: file.name,
@@ -43,7 +42,6 @@ export const emailRouter = createRouter({
         ? createAttachments(input.files)
         : undefined;
 
-      // Email a TI (KiwiKoru) - CON adjuntos
       await resend.emails.send({
         from: `KiwiKoru 3D <${env.emailFrom}>`,
         to: env.emailTo,
@@ -61,7 +59,6 @@ export const emailRouter = createRouter({
         attachments,
       });
 
-      // Email al CLIENTE - confirmación (SIN adjuntos)
       await resend.emails.send({
         from: `KiwiKoru 3D <${env.emailFrom}>`,
         to: input.email,
@@ -108,7 +105,6 @@ export const emailRouter = createRouter({
         ? createAttachments(input.files)
         : undefined;
 
-      // Email a TI (KiwiKoru) - CON adjuntos
       await resend.emails.send({
         from: `KiwiKoru 3D <${env.emailFrom}>`,
         to: env.emailTo,
@@ -125,7 +121,6 @@ export const emailRouter = createRouter({
         attachments,
       });
 
-      // Email al CLIENTE - confirmación (SIN adjuntos)
       await resend.emails.send({
         from: `KiwiKoru 3D <${env.emailFrom}>`,
         to: input.email,
