@@ -19,7 +19,7 @@ export default function Contact() {
     subject: "",
     message: "",
   });
-  const [files, setFiles] = useState<<UploadedFile[]>([]);
+  const [files, setFiles] = useState<UploadedFile[]>([]);
   const [submitted, setSubmitted] = useState(false);
   const [submitMsg, setSubmitMsg] = useState("");
   const [dragOver, setDragOver] = useState(false);
