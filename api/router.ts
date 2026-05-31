@@ -1,5 +1,5 @@
-import { createRouter, publicQuery } from "./middleware";
-import { emailRouter } from "./email";
+import { createRouter, publicQuery } from "./middleware.js";
+import { emailRouter } from "./email.js";
 
 export const appRouter = createRouter({
   ping: publicQuery.query(() => ({ ok: true, ts: Date.now() })),
