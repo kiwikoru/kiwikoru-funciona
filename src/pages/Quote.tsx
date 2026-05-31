@@ -22,13 +22,13 @@ export default function Quote() {
     quantity: "1",
     material: "No preference",
   });
-  const [files, setFiles] = useState<<UploadedFile[]>([]);
+  const [files, setFiles] = useState<UploadedFile[]>([]);
   const [agreed, setAgreed] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitMsg, setSubmitMsg] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [modelInfo, setModelInfo] = useState<{ volume: number; dimensions: { x: number; y: number; z: number } } | undefined>(undefined);
-  const fileInputRef = useRef<<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToContactForm = () => {
     const el = document.getElementById("contact-form-section");
