@@ -8,6 +8,75 @@ const resend = env.resendApiKey ? new Resend(env.resendApiKey) : null;
 
 export const emailRouter = createRouter({
   sendQuote: publicQuery
+    sendContact: publicQuery
+  .input(
+    z.object({
+      name: z.string(),
+      email: z.string().email(),
+      subject: z.string(),
+      message: z.string(),
+    })
+  )
+  .mutation(async ({ input }) => {
+    if (!resend) {
+      return {
+        success: true,
+        message: "Mock mode",
+      };
+    }
+
+    // Email para KiwiKoru
+    await resend.emails.send({
+      from: `KiwiKoru 3D <${env.emailFrom}>`,
+      to: env.emailTo,
+      subject: `Contact Form: ${input.subject}`,
+      html: `
+        <h2>New Contact Form Submission</h2>
+
+        <p><strong>Name:</strong> ${input.name}</p>
+        <p><strong>Email:</strong> ${input.email}</p>
+        <p><strong>Subject:</strong> ${input.subject}</p>
+
+        <hr>
+
+        <p>${input.message}</p>
+      `,
+    });
+
+    // Confirmación para cliente
+    await resend.emails.send({
+      from: `KiwiKoru 3D <${env.emailFrom}>`,
+      to: input.email,
+      subject: "We've Received Your Enquiry",
+      html: `
+        <h2>Thank you for contacting KiwiKoru 3D</h2>
+
+        <p>Hi ${input.name},</p>
+
+        <p>
+          We have received your enquiry and will get back to you as soon as possible.
+        </p>
+
+        <p>
+          Please do not reply to this automated email.
+        </p>
+
+        <p>
+          If your matter is urgent, contact us via WhatsApp.
+        </p>
+
+        <p>
+          Kind regards,<br/>
+          KiwiKoru 3D
+        </p>
+      `,
+    });
+
+    return {
+      success: true,
+      message: "Message sent successfully",
+    };
+  }),
     .input(
       z.object({
         name: z.string().min(1, "Name is required"),
