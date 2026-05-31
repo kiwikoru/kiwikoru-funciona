@@ -168,9 +168,74 @@ export const emailRouter = createRouter({
         });
 
         return { success: true, message: "Quote request sent successfully. Check your email for confirmation." };
-      } catch (error) {
+           } catch (error) {
         console.error("Email send error:", error);
         throw new Error("Failed to send email. Please try again or contact us directly.");
       }
+    }),
+
+  sendContact: publicQuery
+    .input(
+      z.object({
+        name: z.string(),
+        email: z.string().email(),
+        subject: z.string(),
+        message: z.string(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      if (!resend) {
+        return {
+          success: true,
+          message: "Mock mode",
+        };
+      }
+
+      await resend.emails.send({
+        from: `KiwiKoru 3D <${env.emailFrom}>`,
+        to: env.emailTo,
+        subject: `Contact Form: ${input.subject}`,
+        html: `
+          <h2>New Contact Form Submission</h2>
+          <p><strong>Name:</strong> ${input.name}</p>
+          <p><strong>Email:</strong> ${input.email}</p>
+          <p><strong>Subject:</strong> ${input.subject}</p>
+          <hr />
+          <p>${input.message}</p>
+        `,
+      });
+
+      await resend.emails.send({
+        from: `KiwiKoru 3D <${env.emailFrom}>`,
+        to: input.email,
+        subject: "We've Received Your Enquiry",
+        html: `
+          <h2>Thank you for contacting KiwiKoru 3D</h2>
+
+          <p>Hi ${input.name},</p>
+
+          <p>
+            We have received your enquiry and will contact you shortly.
+          </p>
+
+          <p>
+            Please do not reply to this automated email.
+          </p>
+
+          <p>
+            For urgent enquiries, contact us via WhatsApp.
+          </p>
+
+          <p>
+            Kind regards,<br />
+            KiwiKoru 3D
+          </p>
+        `,
+      });
+
+      return {
+        success: true,
+        message: "Message sent successfully",
+      };
     }),
 });
