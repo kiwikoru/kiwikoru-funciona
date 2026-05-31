@@ -1,16 +1,16 @@
-import { useState, useRef, useCallback } from "react"
-import { Upload, X, FileText, PenTool, Lightbulb, RotateCcw, Layers } from "lucide-react"
-import { trpc } from "../lib/trpc"
-import SEO from "../components/SEO"
-import { generateBreadcrumbSchema } from "../lib/seo"
-import EstimateTool from "../components/EstimateTool"
+import { useState, useRef, useCallback } from "react";
+import { Upload, X, FileText, PenTool, Lightbulb, RotateCcw, Layers } from "lucide-react";
+import { trpc } from "../lib/trpc";
+import SEO from "../components/SEO";
+import { generateBreadcrumbSchema } from "../lib/seo";
+import EstimateTool from "../components/EstimateTool";
 
 interface UploadedFile {
-  id: string
-  name: string
-  size: string
-  type: string
-  file: File  // ← NUEVO: guardamos el archivo original para enviarlo
+  id: string;
+  name: string;
+  size: string;
+  type: string;
+  file: File;
 }
 
 export default function Quote() {
@@ -21,81 +21,80 @@ export default function Quote() {
     description: "",
     quantity: "1",
     material: "No preference",
-  })
-  const [files, setFiles] = useState<<UploadedFile[]>([])
-  const [agreed, setAgreed] = useState(false)
-  const [submitted, setSubmitted] = useState(false)
-  const [submitMsg, setSubmitMsg] = useState("")
-  const [dragOver, setDragOver] = useState(false)
-  const [modelInfo, setModelInfo] = useState<{ volume: number; dimensions: { x: number; y: number; z: number } } | undefined>(undefined)
-  const fileInputRef = useRef<<HTMLInputElement>(null)
+  });
+  const [files, setFiles] = useState<<UploadedFile[]>([]);
+  const [agreed, setAgreed] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [submitMsg, setSubmitMsg] = useState("");
+  const [dragOver, setDragOver] = useState(false);
+  const [modelInfo, setModelInfo] = useState<{ volume: number; dimensions: { x: number; y: number; z: number } } | undefined>(undefined);
+  const fileInputRef = useRef<<HTMLInputElement>(null);
 
   const scrollToContactForm = () => {
-    const el = document.getElementById("contact-form-section")
-    if (el) el.scrollIntoView({ behavior: "smooth" })
-  }
+    const el = document.getElementById("contact-form-section");
+    if (el) el.scrollIntoView({ behavior: "smooth" });
+  };
 
   const sendQuote = trpc.email.sendQuote.useMutation({
     onSuccess: (data) => {
-      setSubmitted(true)
-      setSubmitMsg(data.message)
-      setFormData({ name: "", email: "", phone: "", description: "", quantity: "1", material: "No preference" })
-      setFiles([])
-      setAgreed(false)
-      setModelInfo(undefined)
+      setSubmitted(true);
+      setSubmitMsg(data.message);
+      setFormData({ name: "", email: "", phone: "", description: "", quantity: "1", material: "No preference" });
+      setFiles([]);
+      setAgreed(false);
+      setModelInfo(undefined);
     },
     onError: (error) => {
-      setSubmitMsg(error.message || "Failed to send. Please try again or email us directly.")
+      setSubmitMsg(error.message || "Failed to send. Please try again or email us directly.");
     },
-  })
+  });
 
-  // ← NUEVO: Función para convertir archivo a base64
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.readAsDataURL(file)
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
       reader.onload = () => {
-        const result = reader.result as string
-        const base64 = result.split(",")[1]
-        resolve(base64)
-      }
-      reader.onerror = reject
-    })
-  }
+        const result = reader.result as string;
+        const base64 = result.split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+    });
+  };
 
   const handleFileSelect = useCallback((selectedFiles: FileList | null) => {
-    if (!selectedFiles) return
+    if (!selectedFiles) return;
     const newFiles: UploadedFile[] = Array.from(selectedFiles).map((file) => ({
       id: Math.random().toString(36).substring(7),
       name: file.name,
-      size: file.size > 1024 * 1024 ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` : `${(file.size / 1024).toFixed(0)} KB`,
+      size: file.size > 1024 * 1024
+        ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+        : `${(file.size / 1024).toFixed(0)} KB`,
       type: file.name.split(".").pop()?.toUpperCase() || "",
-      file: file,  // ← NUEVO: guardamos el archivo original
-    }))
-    setFiles((prev) => [...prev, ...newFiles])
-  }, [])
+      file: file,
+    }));
+    setFiles((prev) => [...prev, ...newFiles]);
+  }, []);
 
-  const removeFile = (id: string) => setFiles((prev) => prev.filter((f) => f.id !== id))
+  const removeFile = (id: string) => setFiles((prev) => prev.filter((f) => f.id !== id));
 
   const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setDragOver(false)
-    handleFileSelect(e.dataTransfer.files)
-  }, [handleFileSelect])
+    e.preventDefault();
+    setDragOver(false);
+    handleFileSelect(e.dataTransfer.files);
+  }, [handleFileSelect]);
 
-  // ← CAMBIADO: Ahora es async y envía archivos como base64
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!agreed) return
+    e.preventDefault();
+    if (!agreed) return;
 
-    // Convertir archivos a base64
     const filesBase64 = await Promise.all(
       files.map(async (f) => ({
         name: f.name,
         type: f.file.type || "application/octet-stream",
         content: await fileToBase64(f.file),
       }))
-    )
+    );
 
     sendQuote.mutate({
       name: formData.name,
@@ -105,13 +104,13 @@ export default function Quote() {
       quantity: formData.quantity,
       material: formData.material,
       files: filesBase64.length > 0 ? filesBase64 : undefined,
-    })
-  }
+    });
+  };
 
   const schema = generateBreadcrumbSchema([
     { name: "Home", url: "https://kiwikoru3d.com/" },
     { name: "Get a Quote", url: "https://kiwikoru3d.com/quote" },
-  ])
+  ]);
 
   return (
     <>
@@ -122,7 +121,6 @@ export default function Quote() {
         schema={schema}
       />
 
-      {/* Hero */}
       <section className="pt-24 pb-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4">
@@ -135,7 +133,6 @@ export default function Quote() {
         </div>
       </section>
 
-      {/* 3D Viewer + Estimate Tool */}
       <section className="py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto">
           <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-6 sm:p-8">
@@ -150,7 +147,6 @@ export default function Quote() {
         </div>
       </section>
 
-      {/* No STL? No problem */}
       <section className="py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-2xl font-bold text-white mb-4">
@@ -176,7 +172,6 @@ export default function Quote() {
         </div>
       </section>
 
-      {/* Quote Form */}
       <section id="contact-form-section" className="py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-3xl mx-auto">
           <h2 className="text-2xl font-bold text-white mb-8 text-center">
@@ -195,7 +190,6 @@ export default function Quote() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Your Details */}
               <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
                 <h3 className="text-lg font-semibold text-white mb-4">Your Details</h3>
                 <div className="grid sm:grid-cols-2 gap-4">
@@ -240,7 +234,6 @@ export default function Quote() {
                 </div>
               </div>
 
-              {/* Project Info */}
               <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
                 <h3 className="text-lg font-semibold text-white mb-4">Project Information</h3>
                 <div className="space-y-4">
@@ -297,11 +290,10 @@ export default function Quote() {
                 </div>
               </div>
 
-              {/* File Upload */}
               <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
                 <h3 className="text-lg font-semibold text-white mb-4">Upload Files</h3>
                 <div
-                  onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+                  onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                   onDragLeave={() => setDragOver(false)}
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
@@ -352,7 +344,6 @@ export default function Quote() {
                 )}
               </div>
 
-              {/* Agreement */}
               <div className="flex items-start gap-3">
                 <input
                   type="checkbox"
@@ -366,22 +357,7 @@ export default function Quote() {
                 </label>
               </div>
 
-              {/* Submit */}
               <button
                 type="submit"
                 disabled={!agreed || sendQuote.isPending}
-                className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-semibold py-3 px-6 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {sendQuote.isPending ? "Sending..." : "Submit Quote Request"}
-              </button>
-
-              {submitMsg && !submitted && (
-                <p className="text-red-400 text-sm text-center">{submitMsg}</p>
-              )}
-            </form>
-          )}
-        </div>
-      </section>
-    </>
-  )
-}
+                className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-semibold py-3 px
