@@ -10,9 +10,10 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <HelmetProvider>
       <TRPCProvider>
-        <HashRouter>
-          <App />
-        </HashRouter>
+<HashRouter>
+  <ScrollToTop />
+  <App />
+</HashRouter>
       </TRPCProvider>
     </HelmetProvider>
   </StrictMode>,
