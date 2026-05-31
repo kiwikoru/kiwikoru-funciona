@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "./middleware";
-import { env } from "./lib/env";
+import { createRouter, publicQuery } from "./middleware.js";
+import { env } from "./lib/env.js";
 import { Resend } from "resend";
 
 // Only initialize Resend if API key is available
