@@ -1,8 +1,9 @@
 import { useState, useRef, useCallback } from "react";
 import { Upload, X, FileText, PenTool, Lightbulb, RotateCcw, Layers } from "lucide-react";
-import { trpc } from "@/providers/trpc";
-import SEO from "@/components/SEO";
-import EstimateTool from "@/components/EstimateTool";
+import { trpc } from "../lib/trpc";
+import SEO from "../components/SEO";
+import { generateBreadcrumbSchema } from "../lib/seo";
+import EstimateTool from "../components/EstimateTool";
 
 interface UploadedFile {
   id: string;
@@ -48,6 +49,19 @@ export default function Quote() {
     },
   });
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const result = reader.result as string;
+        const base64 = result.split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+    });
+  };
+
   const handleFileSelect = useCallback((selectedFiles: FileList | null) => {
     if (!selectedFiles) return;
     const newFiles: UploadedFile[] = Array.from(selectedFiles).map((file) => ({
@@ -70,9 +84,18 @@ export default function Quote() {
     handleFileSelect(e.dataTransfer.files);
   }, [handleFileSelect]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!agreed) return;
+
+    const filesBase64 = await Promise.all(
+      files.map(async (f) => ({
+        name: f.name,
+        type: f.file.type || "application/octet-stream",
+        content: await fileToBase64(f.file),
+      }))
+    );
+
     sendQuote.mutate({
       name: formData.name,
       email: formData.email,
@@ -80,9 +103,14 @@ export default function Quote() {
       description: formData.description,
       quantity: formData.quantity,
       material: formData.material,
-      files: files.map((f) => f.name),
+      files: filesBase64.length > 0 ? filesBase64 : undefined,
     });
   };
+
+  const schema = generateBreadcrumbSchema([
+    { name: "Home", url: "https://kiwikoru3d.com/" },
+    { name: "Get a Quote", url: "https://kiwikoru3d.com/quote" },
+  ]);
 
   return (
     <>
@@ -90,6 +118,7 @@ export default function Quote() {
         title="Get a Quote | KiwiKoru 3D"
         description="Upload your 3D files and get a free quote for 3D printing, CAD design, and product development services in New Zealand."
         url="https://kiwikoru3d.com/quote"
+        schema={schema}
       />
 
       <section className="pt-24 pb-12 px-4 sm:px-6 lg:px-8">

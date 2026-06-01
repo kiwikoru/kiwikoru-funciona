@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from "react";
-import { Upload, X, FileText, Phone, Mail, MapPin, MessageCircle, Send } from "lucide-react";
-import { trpc } from "@/providers/trpc";
-import SEO from "@/components/SEO";
+import { Upload, X, FileText, Phone } from "lucide-react";
+import { trpc } from "../lib/trpc";
+import SEO from "../components/SEO";
 
 interface UploadedFile {
   id: string;
@@ -16,7 +16,7 @@ export default function Contact() {
     name: "",
     email: "",
     phone: "",
-    subject: "General Inquiry",
+    subject: "",
     message: "",
   });
   const [files, setFiles] = useState<UploadedFile[]>([]);
@@ -29,14 +29,26 @@ export default function Contact() {
     onSuccess: (data) => {
       setSubmitted(true);
       setSubmitMsg(data.message);
-      setFormData({ name: "", email: "", phone: "", subject: "General Inquiry", message: "" });
+      setFormData({ name: "", email: "", phone: "", subject: "", message: "" });
       setFiles([]);
-      setTimeout(() => setSubmitted(false), 5000);
     },
     onError: (error) => {
       setSubmitMsg(error.message || "Failed to send. Please try again.");
     },
   });
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const result = reader.result as string;
+        const base64 = result.split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+    });
+  };
 
   const handleFileSelect = useCallback((selectedFiles: FileList | null) => {
     if (!selectedFiles) return;
@@ -60,14 +72,24 @@ export default function Contact() {
     handleFileSelect(e.dataTransfer.files);
   }, [handleFileSelect]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const filesBase64 = await Promise.all(
+      files.map(async (f) => ({
+        name: f.name,
+        type: f.file.type,
+        content: await fileToBase64(f.file),
+      }))
+    );
+
     sendContact.mutate({
       name: formData.name,
       email: formData.email,
       phone: formData.phone || undefined,
       subject: formData.subject,
       message: formData.message,
+      files: filesBase64.length > 0 ? filesBase64 : undefined,
     });
   };
 
@@ -91,9 +113,6 @@ export default function Contact() {
 
         {submitted ? (
           <div className="bg-green-900/20 border border-green-500/30 rounded-xl p-8 text-center">
-            <div className="w-16 h-16 rounded-full bg-yellow-500/15 flex items-center justify-center mx-auto mb-4">
-              <Send size={28} className="text-yellow-500" />
-            </div>
             <h3 className="text-xl font-semibold text-green-400 mb-2">
               Message Sent!
             </h3>
@@ -147,20 +166,16 @@ export default function Contact() {
 
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Subject
+                Subject *
               </label>
-              <select
+              <input
+                type="text"
+                required
                 value={formData.subject}
                 onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                placeholder="How can we help?"
                 className="w-full border border-gray-700 bg-gray-900 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20 transition-all"
-              >
-                <option>General Inquiry</option>
-                <option>Quote Request</option>
-                <option>File Upload Question</option>
-                <option>Material Advice</option>
-                <option>Order Status</option>
-                <option>Other</option>
-              </select>
+              />
             </div>
 
             <div>
