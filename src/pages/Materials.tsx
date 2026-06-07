@@ -1,192 +1,318 @@
+import SEO from '../components/SEO'
+import ScrollReveal, { StaggerReveal } from '../components/ScrollReveal'
 import { Link } from 'react-router-dom'
-import { CheckCircle, Sun, Thermometer, Droplets, Eye, ArrowRight } from 'lucide-react'
-import ParticleCanvas from '../components/ParticleCanvas'
-import ScrollReveal from '../components/ScrollReveal'
-import SectionHeader from '../components/SectionHeader'
-import SEO, { generateBreadcrumbSchema } from '../components/SEO'
+import { ArrowRight, Thermometer, Shield, Droplets, StretchHorizontal, Check, Minus } from 'lucide-react'
 
 const materials = [
   {
     name: 'PLA',
-    subtitle: 'Standard',
-    color: '#f5f0e8',
-    properties: ['Easy to print', 'Biodegradable', 'Good detail', 'Low odor', 'Rigid'],
-    bestFor: ['Prototypes', 'Display models', 'Indoor use', 'Beginner projects'],
-    description:
-      'Polylactic Acid is the most popular 3D printing material. It\'s easy to work with, produces great detail, and is made from renewable resources. Perfect for prototypes, decorative items, and any part that won\'t be exposed to high heat or outdoor conditions.',
+    fullName: 'Polylactic Acid',
+    tagline: 'Great for prototyping, models, and low-stress parts',
+    priceFactor: 1.0,
+    priceLabel: 'Base price',
+    color: '#2d8a4e',
+    icon: '/images/material-pla.jpg',
+    properties: {
+      strength: 'Medium',
+      flexibility: 'Low',
+      heatResistant: 'Low (up to 55°C)',
+      uvResistant: 'No',
+      chemicalResistant: 'Low',
+      biodegradability: 'Yes',
+    },
+    bestFor: ['Prototypes', 'Concept models', 'Decorative parts', 'Low-stress fittings', 'Indoor use'],
+    notFor: ['High heat', 'Outdoor use', 'Heavy mechanical loads'],
+    description: 'PLA is the most popular 3D printing material. It is easy to print, produces great surface quality, and is biodegradable. Best for indoor applications and visual models.',
   },
   {
     name: 'PETG',
-    subtitle: 'Durable',
-    color: '#e8e0d4',
-    properties: ['Strong', 'Impact resistant', 'Chemical resistant', 'Food safe', 'Low shrinkage'],
-    bestFor: ['Functional parts', 'Mechanical components', 'Outdoor use', 'Containers'],
-    description:
-      'Polyethylene Terephthalate Glycol combines the ease of printing of PLA with much greater durability. It\'s the go-to choice for functional parts that need to withstand stress, impact, or outdoor exposure.',
+    fullName: 'Polyethylene Terephthalate Glycol',
+    tagline: 'Excellent all-rounder — strong, durable, and easy to print',
+    priceFactor: 1.2,
+    priceLabel: '+20% vs PLA',
+    color: '#2563eb',
+    icon: '/images/material-petg.jpg',
+    properties: {
+      strength: 'High',
+      flexibility: 'Medium',
+      heatResistant: 'Medium (up to 75°C)',
+      uvResistant: 'Moderate',
+      chemicalResistant: 'High',
+      biodegradability: 'No',
+    },
+    bestFor: ['Mechanical parts', 'Enclosures', 'Functional prototypes', 'Food-safe applications', 'Water-resistant parts'],
+    notFor: ['Extreme heat', 'Flexible applications'],
+    description: 'PETG combines the ease of printing of PLA with much higher strength and durability. It is chemical resistant, food-safe, and produces watertight prints. Our most recommended material for functional parts.',
+  },
+  {
+    name: 'ABS',
+    fullName: 'Acrylonitrile Butadiene Styrene',
+    tagline: 'Tough, impact-resistant, and heat tolerant',
+    priceFactor: 1.3,
+    priceLabel: '+30% vs PLA',
+    color: '#dc2626',
+    icon: '/images/material-abs.jpg',
+    properties: {
+      strength: 'High',
+      flexibility: 'Medium',
+      heatResistant: 'High (up to 100°C)',
+      uvResistant: 'No',
+      chemicalResistant: 'Medium',
+      biodegradability: 'No',
+    },
+    bestFor: ['Automotive parts', 'Enclosures', 'High-temp applications', 'Parts requiring post-processing', 'Snap-fit assemblies'],
+    notFor: ['Outdoor UV exposure', 'Without enclosed printer'],
+    description: 'ABS is a classic engineering plastic known for its toughness and heat resistance. It can be sanded, painted, and acetone-smoothed for a professional finish. Requires heated bed printing.',
   },
   {
     name: 'ASA',
-    subtitle: 'Impact Resistant',
-    color: '#2a2a2a',
-    properties: ['UV stable', 'Weather resistant', 'High impact', 'Glossy finish', 'Heat resistant'],
-    bestFor: ['Outdoor parts', 'Automotive', 'Marine', 'Long-term exposure'],
-    description:
-      'Acrylonitrile Styrene Acrylate is the premium choice for outdoor and automotive applications. It resists UV degradation, maintains strength in harsh weather, and produces a smooth, glossy surface finish.',
+    fullName: 'Acrylonitrile Styrene Acrylate',
+    tagline: 'UV-stable outdoor performance with great aesthetics',
+    priceFactor: 1.4,
+    priceLabel: '+40% vs PLA',
+    color: '#ea580c',
+    icon: '/images/material-asa.jpg',
+    properties: {
+      strength: 'High',
+      flexibility: 'Medium',
+      heatResistant: 'High (up to 95°C)',
+      uvResistant: 'Yes',
+      chemicalResistant: 'Medium',
+      biodegradability: 'No',
+    },
+    bestFor: ['Outdoor parts', 'Automotive trim', 'Marine applications', 'Garden equipment', 'Signage'],
+    notFor: ['Flexible requirements', 'Food contact'],
+    description: 'ASA is like ABS but with excellent UV resistance. It will not yellow or degrade in sunlight, making it the top choice for outdoor and automotive applications in New Zealand conditions.',
   },
   {
     name: 'TPU',
-    subtitle: 'Flexible',
-    color: '#3d5a4e',
-    properties: ['Rubber-like', 'Flexible', 'Abrasion resistant', 'Shock absorbing', 'Durable'],
-    bestFor: ['Gaskets', 'Grips', 'Phone cases', 'Wearables', 'Seals'],
-    description:
-      'Thermoplastic Polyurethane is a flexible, rubber-like filament that combines elasticity with durability. Perfect for gaskets, grips, phone cases, wearables, and any part that needs to bend, flex, or absorb impact.',
+    fullName: 'Thermoplastic Polyurethane',
+    tagline: 'Flexible, rubber-like, and highly durable',
+    priceFactor: 1.5,
+    priceLabel: '+50% vs PLA',
+    color: '#7c3aed',
+    icon: '/images/material-tpu.jpg',
+    properties: {
+      strength: 'Medium',
+      flexibility: 'High',
+      heatResistant: 'Medium (up to 80°C)',
+      uvResistant: 'Moderate',
+      chemicalResistant: 'Medium',
+      biodegradability: 'No',
+    },
+    bestFor: ['Gaskets & seals', 'Phone cases', 'Wheels & tyres', 'Flexible hinges', 'Vibration dampeners', 'Wearables'],
+    notFor: ['Rigid structural parts', 'Very high heat'],
+    description: 'TPU is a flexible, rubber-like material that can bend, compress, and return to shape. Available in various shore hardnesses from soft (92A) to semi-rigid. Excellent abrasion resistance.',
   },
 ]
 
-const tips = [
-  {
-    icon: Sun,
-    title: 'Consider the Environment',
-    desc: 'Will your part be used indoors or outdoors? PLA is great for indoor display, while PETG and ASA handle weather and UV exposure. TPU is ideal for flexible, rubber-like parts.',
-  },
-  {
-    icon: Thermometer,
-    title: 'Think About Function',
-    desc: 'Does your part need to bear load or withstand impact? PETG offers the best strength-to-printability ratio for functional parts.',
-  },
-  {
-    icon: Droplets,
-    title: 'Check the Temperature',
-    desc: 'Will your part be exposed to heat? ASA handles the highest temperatures, followed by PETG. PLA starts to deform around 55°C. TPU remains flexible across a wide temperature range.',
-  },
-  {
-    icon: Eye,
-    title: 'Surface Finish Matters',
-    desc: 'PLA produces the finest detail and smoothest surfaces. ASA offers a glossy finish. PETG is slightly more textured. TPU has a matte, rubber-like feel.',
-  },
+const comparisonRows = [
+  { label: 'Strength', icon: Shield, key: 'strength' as const },
+  { label: 'Flexibility', icon: StretchHorizontal, key: 'flexibility' as const },
+  { label: 'Heat Resistance', icon: Thermometer, key: 'heatResistant' as const },
+  { label: 'UV Resistance', icon: SunIcon, key: 'uvResistant' as const },
+  { label: 'Chemical Resistance', icon: Droplets, key: 'chemicalResistant' as const },
 ]
+
+function SunIcon({ size, className }: { size: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+    </svg>
+  )
+}
 
 export default function Materials() {
-  const schema = generateBreadcrumbSchema([
-    { name: 'Home', url: 'https://kiwikoru3d.com/' },
-    { name: 'Materials', url: 'https://kiwikoru3d.com/materials' },
-  ])
-
   return (
     <>
       <SEO
-        title="3D Printing Materials Guide | PLA, PETG, ASA, TPU | KiwiKoru 3D NZ"
-        description="Compare 3D printing materials — PLA, PETG, ASA, and TPU Flexible. Learn which filament is best for your project. Professional material advice from Whangārei's KiwiKoru 3D."
+        title="3D Printing Materials Guide | PLA PETG ABS ASA TPU | KiwiKoru 3D"
+        description="Compare 3D printing materials — PLA, PETG, ABS, ASA, TPU. Find the best material for your project with our comprehensive material guide and properties comparison."
         path="/materials"
-        schema={schema}
       />
 
       {/* Hero */}
-      <section className="relative min-h-[320px] md:min-h-[40vh] bg-forest flex items-center justify-center" aria-label="Materials hero">
-        <ParticleCanvas count={25} />
-        <div className="relative z-10 text-center px-6 max-w-[600px]">
+      <section className="relative bg-forest pt-32 pb-20">
+        <div className="max-w-7xl mx-auto px-6">
           <ScrollReveal>
-            <h1 className="text-[36px] md:text-[48px] font-extrabold text-white leading-tight">
-              3D Printing Materials Guide
+            <h1 className="text-4xl md:text-5xl font-bold text-white">
+              Material <span className="text-gold">Guide</span>
             </h1>
-          </ScrollReveal>
-          <ScrollReveal delay={0.15}>
-            <p className="mt-4 text-white/70 text-base leading-relaxed">
-              Choose the right filament for your project. We stock premium-quality materials for every application.
+            <p className="mt-4 text-white/60 max-w-2xl text-lg">
+              Choose the right material for your application. We offer five professional-grade filaments, each suited to different requirements.
             </p>
           </ScrollReveal>
         </div>
       </section>
 
-      {/* Materials Comparison */}
-      <section className="bg-white py-[60px] md:py-[100px]" aria-labelledby="materials-compare-heading">
-        <div className="max-w-[1200px] mx-auto px-6">
-          <SectionHeader
-            id="materials-compare-heading"
-            headline="Compare Our Materials"
-          />
+      {/* Quick Comparison Table */}
+      <section className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-6">
+          <ScrollReveal className="text-center mb-12">
+            <h2 className="text-2xl md:text-3xl font-bold text-charcoal">Quick Comparison</h2>
+            <p className="mt-3 text-gray-600">At a glance — find the material that matches your needs</p>
+          </ScrollReveal>
 
-          <ScrollReveal variant="stagger" className="mt-12 md:mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {materials.map((m) => (
-              <div
-                key={m.name}
-                className="border border-border-light rounded-xl overflow-hidden transition-all duration-400 hover:-translate-y-1 hover:shadow-card"
-              >
-                {/* Color swatch */}
-                <div className="h-10" style={{ backgroundColor: m.color }} />
-
-                <div className="p-8">
-                  <h3 className="text-2xl font-bold text-charcoal">
-                    {m.name} <span className="text-base font-medium text-charcoal-light">— {m.subtitle}</span>
-                  </h3>
-
-                  <ul className="mt-4 space-y-2" role="list">
-                    {m.properties.map((prop) => (
-                      <li key={prop} className="flex items-center gap-2 text-sm text-charcoal-light">
-                        <CheckCircle size={14} className="text-gold shrink-0" />
-                        {prop}
-                      </li>
+          <ScrollReveal>
+            <div className="overflow-x-auto -mx-6 px-6">
+              <table className="w-full min-w-[700px] border-collapse">
+                <thead>
+                  <tr className="border-b-2 border-forest/10">
+                    <th className="text-left py-4 px-4 text-sm font-semibold text-gray-500 uppercase tracking-wider">Property</th>
+                    {materials.map((m) => (
+                      <th key={m.name} className="text-center py-4 px-3">
+                        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold" style={{ backgroundColor: m.color + '15', color: m.color }}>
+                          {m.name}
+                        </span>
+                      </th>
                     ))}
-                  </ul>
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {m.bestFor.map((tag) => (
-                      <span
-                        key={tag}
-                        className="px-3 py-1 bg-gold/15 text-gold text-xs font-medium rounded-pill"
-                      >
-                        {tag}
-                      </span>
+                  </tr>
+                </thead>
+                <tbody>
+                  {comparisonRows.map((row) => (
+                    <tr key={row.label} className="border-b border-gray-50 hover:bg-cream/50 transition-colors">
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-2 text-sm font-medium text-charcoal">
+                          <row.icon size={16} className="text-forest" />
+                          {row.label}
+                        </div>
+                      </td>
+                      {materials.map((m) => (
+                        <td key={m.name} className="text-center py-4 px-3 text-sm text-gray-600">
+                          {m.properties[row.key]}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                  <tr className="border-b border-gray-50">
+                    <td className="py-4 px-4 text-sm font-medium text-charcoal">Price Factor</td>
+                    {materials.map((m) => (
+                      <td key={m.name} className="text-center py-4 px-3">
+                        <span className="text-sm font-semibold text-gold">{m.priceLabel}</span>
+                      </td>
                     ))}
-                  </div>
-
-                  <p className="mt-4 text-sm text-charcoal-light leading-relaxed">{m.description}</p>
-                </div>
-              </div>
-            ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </ScrollReveal>
         </div>
       </section>
 
-      {/* Material Tips */}
-      <section className="bg-off-white py-[60px] md:py-[100px]" aria-labelledby="tips-heading">
-        <div className="max-w-[1200px] mx-auto px-6">
-          <ScrollReveal>
-            <h2 id="tips-heading" className="text-[28px] md:text-[36px] font-bold text-charcoal text-center">
-              Not Sure Which Material to Choose?
-            </h2>
+      {/* Detailed Material Cards */}
+      <section className="py-20 bg-cream">
+        <div className="max-w-7xl mx-auto px-6">
+          <ScrollReveal className="text-center mb-12">
+            <h2 className="text-2xl md:text-3xl font-bold text-charcoal">Material Details</h2>
+            <p className="mt-3 text-gray-600">Deep dive into each material's properties and ideal applications</p>
           </ScrollReveal>
 
-          <ScrollReveal variant="stagger" delay={0.15} className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-6">
-            {tips.map((tip) => (
-              <div key={tip.title} className="bg-white border border-border-light rounded-xl p-8">
-                <tip.icon size={24} className="text-forest mb-3" />
-                <h3 className="text-lg font-semibold text-charcoal">{tip.title}</h3>
-                <p className="mt-2 text-sm text-charcoal-light leading-relaxed">{tip.desc}</p>
+          <div className="space-y-12">
+            {materials.map((m) => (
+              <ScrollReveal key={m.name}>
+                <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                  <div className="grid lg:grid-cols-[300px_1fr]">
+                    {/* Material Header */}
+                    <div className="p-8 flex flex-col justify-center" style={{ backgroundColor: m.color + '08' }}>
+                      <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: m.color + '15' }}>
+                        <span className="text-2xl font-bold" style={{ color: m.color }}>{m.name}</span>
+                      </div>
+                      <p className="text-sm text-gray-500 mb-1">{m.fullName}</p>
+                      <p className="text-sm font-medium text-gold mb-4">{m.priceLabel}</p>
+                      <p className="text-sm text-gray-600 leading-relaxed">{m.tagline}</p>
+                    </div>
+
+                    {/* Material Details */}
+                    <div className="p-8">
+                      <p className="text-sm text-gray-600 leading-relaxed mb-6">{m.description}</p>
+
+                      <div className="grid sm:grid-cols-2 gap-6">
+                        <div>
+                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Best For</p>
+                          <ul className="space-y-1.5">
+                            {m.bestFor.map((item) => (
+                              <li key={item} className="flex items-center gap-2 text-sm text-gray-600">
+                                <Check size={14} className="text-green-500 shrink-0" /> {item}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Not Ideal For</p>
+                          <ul className="space-y-1.5">
+                            {m.notFor.map((item) => (
+                              <li key={item} className="flex items-center gap-2 text-sm text-gray-600">
+                                <Minus size={14} className="text-gray-300 shrink-0" /> {item}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+
+                      <div className="mt-6 pt-6 border-t border-gray-100">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          {Object.entries(m.properties).map(([key, value]) => (
+                            <div key={key} className="bg-cream rounded-lg px-3 py-2">
+                              <p className="text-[10px] text-gray-400 uppercase tracking-wider">{key.replace(/([A-Z])/g, ' $1').trim()}</p>
+                              <p className="text-xs font-medium text-charcoal mt-0.5">{value}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </ScrollReveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Recommendation Guide */}
+      <section className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-6">
+          <ScrollReveal className="text-center mb-12">
+            <h2 className="text-2xl md:text-3xl font-bold text-charcoal">Material Selection Guide</h2>
+            <p className="mt-3 text-gray-600">Match your application to the best material</p>
+          </ScrollReveal>
+
+          <StaggerReveal className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[
+              { scenario: 'First prototype / visual model', material: 'PLA', why: 'Best surface finish, lowest cost' },
+              { scenario: 'Functional mechanical part', material: 'PETG', why: 'Strong, durable, easy to print' },
+              { scenario: 'Outdoor / UV exposure', material: 'ASA', why: 'UV stable, weather resistant' },
+              { scenario: 'High heat application', material: 'ABS', why: 'Highest heat resistance' },
+              { scenario: 'Flexible / rubber part', material: 'TPU', why: 'Flexible with great abrasion resistance' },
+              { scenario: 'Food contact / chemical exposure', material: 'PETG', why: 'Food-safe and chemical resistant' },
+              { scenario: 'Snap-fit assembly', material: 'ABS or PETG', why: 'Good layer adhesion and toughness' },
+              { scenario: 'Marine / wet environment', material: 'ASA', why: 'Water and UV resistant' },
+              { scenario: 'Wearable / soft grip', material: 'TPU', why: 'Comfortable flexible material' },
+            ].map((rec) => (
+              <div key={rec.scenario} className="bg-cream rounded-xl p-5 border border-gray-100">
+                <p className="text-sm font-medium text-charcoal mb-2">{rec.scenario}</p>
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 bg-forest/5 text-forest text-xs font-semibold rounded">{rec.material}</span>
+                  <span className="text-xs text-gray-500">{rec.why}</span>
+                </div>
               </div>
             ))}
-          </ScrollReveal>
+          </StaggerReveal>
         </div>
       </section>
 
       {/* CTA */}
-      <section className="bg-forest py-16" aria-label="Call to action">
-        <div className="max-w-[1200px] mx-auto px-6 text-center">
+      <section className="py-20 bg-forest-dark">
+        <div className="max-w-7xl mx-auto px-6 text-center">
           <ScrollReveal>
-            <h2 className="text-[28px] md:text-[36px] font-bold text-white">
-              Ready to Print?
-            </h2>
-            <p className="mt-3 text-white/70 max-w-[480px] mx-auto">
-              Upload your design and get a quote. We'll help you choose the right material.
+            <h2 className="text-3xl font-bold text-white mb-4">Ready to Print?</h2>
+            <p className="text-white/60 max-w-xl mx-auto mb-8">
+              Upload your 3D model and select your material. Our quote tool gives you an instant price estimate.
             </p>
-          </ScrollReveal>
-          <ScrollReveal delay={0.2} className="mt-8">
             <Link
               to="/quote"
-              className="inline-flex items-center px-8 py-3.5 bg-gold text-forest font-semibold rounded-pill transition-all duration-200 hover:bg-gold-light hover:-translate-y-0.5 focus-gold"
+              className="inline-flex items-center gap-2 px-8 py-4 bg-gold text-forest-dark font-semibold rounded-lg hover:bg-gold-light transition-all"
             >
-              Get Your Quote <ArrowRight size={18} className="ml-2" />
+              Get an Instant Quote <ArrowRight size={18} />
             </Link>
           </ScrollReveal>
         </div>

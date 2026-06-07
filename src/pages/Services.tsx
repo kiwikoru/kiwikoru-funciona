@@ -1,190 +1,140 @@
-import { Link } from 'react-router-dom'
-import {
-  Printer, Clock, Factory, FileCheck, FlaskConical, Paintbrush,
-  Upload, FileSearch, Package, ArrowRight,
-} from 'lucide-react'
-import ParticleCanvas from '../components/ParticleCanvas'
+import SEO from '../components/SEO'
 import ScrollReveal from '../components/ScrollReveal'
-import SectionHeader from '../components/SectionHeader'
-import SEO, { generateServiceSchema, generateBreadcrumbSchema } from '../components/SEO'
+import { Link } from 'react-router-dom'
+import { ArrowRight, CheckCircle } from 'lucide-react'
 
 const services = [
   {
-    icon: Printer,
-    title: 'FDM 3D Printing',
-    desc: 'Industrial-grade fused deposition modeling with layer resolutions from 0.1mm to 0.3mm. Perfect for functional parts, prototypes, and end-use products.',
-  },
-  {
-    icon: Clock,
     title: 'Rapid Prototyping',
-    desc: 'Turn your concept into a physical model in 24-48 hours. Ideal for design validation, fit testing, and presentation models.',
+    headline: 'Transform concepts into physical parts quickly',
+    desc: 'Speed up your design process with fast-turnaround prototypes. We print functional parts that you can handle, test, and refine — often within 48 hours.',
+    features: ['Design validation & fit testing', 'Functional prototypes', 'Multiple iterations quickly', 'Wide range of materials'],
+    outcome: 'Faster iteration cycles',
+    cta: 'Get a Prototype Quote',
+    image: '/images/projects/1_Everything_You_Should_Know_About.png',
   },
   {
-    icon: Factory,
     title: 'Custom Manufacturing',
-    desc: 'Low-volume production runs of 10-100+ identical parts. Consistent quality, competitive per-unit pricing, no minimum order.',
+    headline: 'From one-off bespoke items to small production runs',
+    desc: 'Need more than a prototype? We produce consistent, high-quality parts in small to medium batches with reliable lead times and competitive pricing.',
+    features: ['Small batch production (5-500 units)', 'Consistent quality per batch', 'Material flexibility', 'Packaging & fulfilment options'],
+    outcome: 'Reliable production partner',
+    cta: 'Request Manufacturing Quote',
+    image: '/images/projects/10_Rapid_Prototyping_Service_Dassault.png',
   },
   {
-    icon: FileCheck,
-    title: 'CAD File Preparation',
-    desc: 'We review and optimize your STL, STEP, and 3MF files for the best print results. Recommendations on orientation, supports, and infill.',
+    title: 'Replacement Parts',
+    headline: 'Recreate discontinued or hard-to-find components',
+    desc: 'Broken a bracket that is no longer made? We can reverse-engineer from your sample or drawing and produce a durable replacement — often stronger than the original.',
+    features: ['Reverse engineering from samples', 'Improved designs available', 'Stronger materials than OEM', 'Single part or batch orders'],
+    outcome: 'Keep equipment running',
+    cta: 'Order a Replacement Part',
+    image: '/images/projects/5_3D_Printed_Set_of_Four_Small_Nylon.png',
   },
   {
-    icon: FlaskConical,
-    title: 'Material Consultation',
-    desc: 'Not sure which filament to choose? We advise on PLA, PETG, ASA, and specialty materials based on your part\'s function and environment.',
+    title: 'Product Development',
+    headline: 'Collaborative approach from concept to production',
+    desc: 'Work with us through every stage — ideation, CAD modelling, prototyping, testing, and final production. We help inventors and businesses bring new products to life.',
+    features: ['Concept to CAD design', 'Iterative prototyping', 'Design for manufacturing (DfM)', 'Mould-ready files if needed'],
+    outcome: 'Bring products to market',
+    cta: 'Start Product Development',
+    image: '/images/projects/2_How_3D_Printing_is_Changing_Prototyping.png',
   },
   {
-    icon: Paintbrush,
-    title: 'Post-Processing',
-    desc: 'Optional finishing services including support removal, sanding, and assembly to deliver presentation-ready parts.',
+    title: 'Engineering Solutions',
+    headline: 'Complex geometries and functional assemblies',
+    desc: 'We produce parts that solve real engineering problems — jigs, fixtures, housings, gears, and assemblies with tight tolerances and functional requirements.',
+    features: ['Jigs & fixtures', 'Housings & enclosures', 'Gears & mechanical parts', 'Assembly-fit accuracy'],
+    outcome: 'Solve engineering challenges',
+    cta: 'Discuss Your Project',
+    image: '/images/projects/6_The_Definitive_Guide_to_3D_Printing.png',
   },
-]
-
-const steps = [
-  { num: '1', title: 'Upload Your File', desc: 'Send us your STL, STEP, 3MF, or OBJ file via our instant quote form or email.', icon: Upload },
-  { num: '2', title: 'Get a Quote', desc: 'We review your design and provide a transparent, itemized quote within hours.', icon: FileSearch },
-  { num: '3', title: 'We Print', desc: 'Your part is printed on our professional FDM printers with your chosen material and settings.', icon: Printer },
-  { num: '4', title: 'Receive', desc: 'Collect from our Whangārei studio or have it couriered anywhere in New Zealand.', icon: Package },
-]
-
-const formats = [
-  { ext: 'STL', desc: 'Most common 3D printing format' },
-  { ext: 'STEP', desc: 'CAD standard format' },
-  { ext: '3MF', desc: 'Modern format with color' },
-  { ext: 'OBJ', desc: 'Widely supported mesh' },
+  {
+    title: 'Corporate Branding',
+    headline: 'Custom branded products that stand out',
+    desc: 'From keychains to desk accessories, we create memorable branded items for events, trade shows, client gifts, and employee welcome packs.',
+    features: ['Branded keychains & accessories', 'Trade show giveaways', 'Employee welcome packs', 'Custom colours & logos'],
+    outcome: 'Stand out from competitors',
+    cta: 'Order Branded Items',
+    image: '/images/projects/10_Custom_3D_Printed_Logo_Keychains.png',
+  },
 ]
 
 export default function Services() {
-  const schema = {
-    '@context': 'https://schema.org',
-    '@graph': [
-      generateServiceSchema(),
-      generateBreadcrumbSchema([
-        { name: 'Home', url: 'https://kiwikoru3d.com/' },
-        { name: 'Services', url: 'https://kiwikoru3d.com/services' },
-      ]),
-    ],
-  }
-
   return (
     <>
       <SEO
-        title="3D Printing Services NZ | Rapid Prototyping | Custom Parts | KiwiKoru 3D"
-        description="Comprehensive 3D printing services including rapid prototyping, custom manufacturing, FDM printing, CAD file prep, and material consultation. Based in Whangārei, serving all NZ."
+        title="3D Printing Services NZ | KiwiKoru 3D"
+        description="Professional 3D printing services in New Zealand — rapid prototyping, custom manufacturing, replacement parts, product development, engineering solutions, and corporate branding."
         path="/services"
-        schema={schema}
       />
 
       {/* Hero */}
-      <section className="relative min-h-[400px] md:min-h-[50vh] bg-forest flex items-center justify-center" aria-label="Services hero">
-        <ParticleCanvas count={25} />
-        <div className="relative z-10 text-center px-6 max-w-[600px]">
+      <section className="relative bg-forest pt-32 pb-20">
+        <div className="max-w-7xl mx-auto px-6">
           <ScrollReveal>
-            <h1 className="text-[36px] md:text-[48px] font-extrabold text-white leading-tight">
-              Our 3D Printing Services
+            <h1 className="text-4xl md:text-5xl font-bold text-white">
+              Our <span className="text-gold">Services</span>
             </h1>
-          </ScrollReveal>
-          <ScrollReveal delay={0.15}>
-            <p className="mt-4 text-white/70 text-base leading-relaxed">
-              From rapid prototyping to custom end-use parts, we deliver precision FDM printing
-              for makers, engineers, and businesses across New Zealand.
+            <p className="mt-4 text-white/60 max-w-2xl text-lg">
+              Professional 3D printing and product development for businesses, engineers, makers, and creators across New Zealand.
             </p>
           </ScrollReveal>
         </div>
       </section>
 
-      {/* Services Grid */}
-      <section className="bg-white py-[60px] md:py-[100px]" aria-labelledby="services-grid-heading">
-        <div className="max-w-[1200px] mx-auto px-6">
-          <SectionHeader
-            id="services-grid-heading"
-            headline="What We Offer"
-            body="Comprehensive 3D printing solutions tailored to your project needs."
-          />
-
-          <ScrollReveal variant="stagger" className="mt-12 md:mt-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {services.map((s) => (
-              <div
-                key={s.title}
-                className="border border-border-light rounded-xl p-8 transition-all duration-400 hover:-translate-y-1 hover:shadow-card hover:border-gold/30"
-              >
-                <div className="w-12 h-12 rounded-lg bg-gold/15 flex items-center justify-center mb-5">
-                  <s.icon size={24} className="text-forest" />
+      {/* Services Detail */}
+      <section className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-6 space-y-16">
+          {services.map((s, i) => (
+            <ScrollReveal key={s.title}>
+              <div className="grid lg:grid-cols-2 gap-10 items-center">
+                <div className={i % 2 === 1 ? 'lg:order-2' : ''}>
+                  <h2 className="text-2xl md:text-3xl font-bold text-charcoal mb-3">{s.title}</h2>
+                  <p className="text-lg text-forest font-medium mb-3">{s.headline}</p>
+                  <p className="text-gray-600 leading-relaxed mb-6">{s.desc}</p>
+                  <ul className="space-y-2 mb-6">
+                    {s.features.map((f) => (
+                      <li key={f} className="flex items-center gap-2 text-sm text-gray-600">
+                        <CheckCircle size={16} className="text-gold shrink-0" /> {f}
+                      </li>
+                    ))}
+                  </ul>
+                  <Link
+                    to="/quote"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-forest text-white font-medium rounded-lg hover:bg-forest-light transition-all"
+                  >
+                    {s.cta} <ArrowRight size={16} />
+                  </Link>
                 </div>
-                <h3 className="text-xl font-semibold text-charcoal">{s.title}</h3>
-                <p className="mt-2 text-sm text-charcoal-light leading-relaxed">{s.desc}</p>
-              </div>
-            ))}
-          </ScrollReveal>
-        </div>
-      </section>
-
-      {/* Process */}
-      <section className="bg-off-white py-[60px] md:py-[100px]" aria-labelledby="process-heading">
-        <div className="max-w-[1200px] mx-auto px-6">
-          <SectionHeader
-            id="process-heading"
-            headline="How It Works"
-            body="Simple 4-step process from your digital file to finished part."
-          />
-
-          <ScrollReveal variant="stagger" className="mt-12 md:mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 relative">
-            {/* Connecting line */}
-            <div className="hidden lg:block absolute top-6 left-[12.5%] right-[12.5%] h-px border-t border-dashed border-gold/30" aria-hidden="true" />
-
-            {steps.map((step) => (
-              <div key={step.num} className="text-center relative">
-                <div className="w-12 h-12 rounded-full bg-gold text-forest font-bold text-lg flex items-center justify-center mx-auto">
-                  {step.num}
+                <div className={i % 2 === 1 ? 'lg:order-1' : ''}>
+                  <div className="rounded-2xl border border-gray-100 overflow-hidden bg-cream aspect-[4/3]">
+                    <img src={s.image} alt={s.title} className="w-full h-full object-cover" loading="lazy" />
+                  </div>
                 </div>
-                <step.icon size={28} className="text-gold mx-auto mt-4" />
-                <h3 className="mt-4 text-lg font-semibold text-charcoal">{step.title}</h3>
-                <p className="mt-2 text-sm text-charcoal-light leading-relaxed">{step.desc}</p>
               </div>
-            ))}
-          </ScrollReveal>
-        </div>
-      </section>
-
-      {/* File Formats */}
-      <section className="bg-white py-[60px] md:py-[100px]" aria-labelledby="formats-heading">
-        <div className="max-w-[1200px] mx-auto px-6">
-          <ScrollReveal>
-            <h2 id="formats-heading" className="text-[28px] md:text-[36px] font-bold text-charcoal text-center">
-              Supported File Formats
-            </h2>
-          </ScrollReveal>
-
-          <ScrollReveal variant="stagger" delay={0.15} className="mt-10 grid grid-cols-2 md:grid-cols-4 gap-4">
-            {formats.map((f) => (
-              <div key={f.ext} className="bg-forest/[0.04] rounded-lg p-6 text-center">
-                <span className="text-xl font-bold text-forest">{f.ext}</span>
-                <p className="mt-2 text-xs text-charcoal-light">{f.desc}</p>
-              </div>
-            ))}
-          </ScrollReveal>
+              {i < services.length - 1 && <hr className="border-gray-100 mt-16" />}
+            </ScrollReveal>
+          ))}
         </div>
       </section>
 
       {/* CTA */}
-      <section className="bg-forest py-16" aria-label="Call to action">
-        <div className="max-w-[1200px] mx-auto px-6 text-center">
+      <section className="py-20 bg-cream">
+        <div className="max-w-7xl mx-auto px-6 text-center">
           <ScrollReveal>
-            <h2 className="text-[28px] md:text-[36px] font-bold text-white">
-              Ready to Start Your Project?
-            </h2>
-            <p className="mt-3 text-white/70 max-w-[480px] mx-auto">
-              Upload your design and get a detailed quote. Fast turnaround, competitive pricing.
+            <h2 className="text-3xl font-bold text-charcoal mb-4">Not Sure Which Service You Need?</h2>
+            <p className="text-gray-600 max-w-xl mx-auto mb-8">
+              Contact us with your project details and we will recommend the best approach, material, and process for your application.
             </p>
-          </ScrollReveal>
-          <ScrollReveal delay={0.2} className="mt-8">
-            <Link
-              to="/quote"
-              className="inline-flex items-center px-8 py-3.5 bg-gold text-forest font-semibold rounded-pill transition-all duration-200 hover:bg-gold-light hover:-translate-y-0.5 focus-gold"
-            >
-              Get Your Quote <ArrowRight size={18} className="ml-2" />
-            </Link>
+            <div className="flex flex-wrap justify-center gap-4">
+              <Link to="/quote" className="inline-flex items-center gap-2 px-8 py-4 bg-gold text-forest-dark font-semibold rounded-lg hover:bg-gold-light transition-all">
+                Get a Quote <ArrowRight size={18} />
+              </Link>
+              <Link to="/contact" className="inline-flex items-center gap-2 px-8 py-4 border border-forest text-forest font-medium rounded-lg hover:bg-forest hover:text-white transition-all">
+                Contact Us
+              </Link>
+            </div>
           </ScrollReveal>
         </div>
       </section>

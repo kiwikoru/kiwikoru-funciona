@@ -1,348 +1,515 @@
-import { useState, useRef, useCallback } from "react";
-import { Upload, X, FileText, PenTool, Lightbulb, RotateCcw, Layers } from "lucide-react";
-import { trpc } from "@/providers/trpc";
-import SEO from "@/components/SEO";
-import EstimateTool from "@/components/EstimateTool";
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
+import SEO from '../components/SEO'
+import ScrollReveal from '../components/ScrollReveal'
+import { Link } from 'react-router-dom'
+import {
+  Upload, X, Box, DollarSign, Settings, ChevronDown, ChevronUp,
+  Info, AlertCircle, Layers, Thermometer, Sparkles, ArrowRight, Send,
+  Minus, Plus, Clock, Truck, Palette, Ruler, Weight
+} from 'lucide-react'
+import { useQuote, type PrintColor } from '../contexts/QuoteContext'
+import ModelViewer, { type ModelAnalysis } from '../components/ModelViewer'
 
-interface UploadedFile {
-  id: string;
-  name: string;
-  size: string;
-  type: string;
-  file: File;
+/* ─── Material data ─── */
+const materials = [
+  { name: 'PLA', factor: 1.0, desc: 'Best for prototypes & models', color: '#2d8a4e' },
+  { name: 'PETG', factor: 1.2, desc: 'Strong, durable all-rounder', color: '#2563eb' },
+  { name: 'ABS', factor: 1.3, desc: 'Tough & heat resistant', color: '#dc2626' },
+  { name: 'ASA', factor: 1.4, desc: 'UV-stable for outdoors', color: '#ea580c' },
+  { name: 'TPU', factor: 1.5, desc: 'Flexible & rubber-like', color: '#7c3aed' },
+]
+
+const infillOptions = [
+  { value: 10, label: '10% — Visual / Light use', factor: 0.7 },
+  { value: 20, label: '20% — Standard', factor: 0.85 },
+  { value: 30, label: '30% — Functional', factor: 1.0 },
+  { value: 50, label: '50% — Strong', factor: 1.25 },
+  { value: 80, label: '80% — Very strong', factor: 1.6 },
+  { value: 100, label: '100% — Solid', factor: 1.9 },
+]
+
+const layerOptions = [
+  { value: 0.28, label: '0.28mm — Fast', factor: 0.9 },
+  { value: 0.2, label: '0.20mm — Standard', factor: 1.0 },
+  { value: 0.16, label: '0.16mm — Fine', factor: 1.1 },
+  { value: 0.12, label: '0.12mm — Detailed', factor: 1.25 },
+  { value: 0.08, label: '0.08mm — Ultra fine', factor: 1.5 },
+]
+
+const finishOptions = [
+  { value: 'standard', label: 'Standard', factor: 1.0 },
+  { value: 'smooth', label: 'Smooth (sanded)', factor: 1.3 },
+  { value: 'premium', label: 'Premium (filled + painted)', factor: 1.8 },
+]
+
+const supportOptions = [
+  { value: 'none', label: 'None needed', factor: 1.0 },
+  { value: 'minimal', label: 'Minimal', factor: 1.08 },
+  { value: 'standard', label: 'Standard', factor: 1.15 },
+  { value: 'extensive', label: 'Extensive', factor: 1.3 },
+]
+
+const printColors: { id: PrintColor; label: string; bg: string; border?: string }[] = [
+  { id: 'black', label: 'Black', bg: '#1a1a1a' },
+  { id: 'white', label: 'White', bg: '#f5f5f5', border: '#d4d4d4' },
+  { id: 'red', label: 'Red', bg: '#dc2626' },
+  { id: 'blue', label: 'Blue', bg: '#2563eb' },
+  { id: 'yellow', label: 'Yellow', bg: '#eab308' },
+  { id: 'other', label: 'Other', bg: 'linear-gradient(135deg, #C9A96E 0%, #8BA888 50%, #2563eb 100%)' },
+]
+
+function getBulkLabel(qty: number): string {
+  if (qty >= 50) return '30% (contact us)'
+  if (qty >= 25) return '20% off'
+  if (qty >= 10) return '15% off'
+  if (qty >= 5) return '10% off'
+  if (qty >= 2) return '5% off'
+  return 'No discount'
 }
 
+/* ─── Analysis Panel ─── */
+function AnalysisPanel({ analysis }: { analysis: ModelAnalysis | null }) {
+  if (!analysis) return null
+  const hours = Math.floor(analysis.estimatedTime / 60)
+  const mins = Math.round(analysis.estimatedTime % 60)
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
+      <div className="bg-cream rounded-lg px-3 py-2.5">
+        <div className="flex items-center gap-1.5 mb-1"><Box size={12} className="text-forest" /><span className="text-[10px] text-gray-400 uppercase tracking-wider">Volume</span></div>
+        <p className="text-sm font-semibold text-charcoal">{analysis.volume.toFixed(1)} <span className="text-xs text-gray-400 font-normal">cm³</span></p>
+      </div>
+      <div className="bg-cream rounded-lg px-3 py-2.5">
+        <div className="flex items-center gap-1.5 mb-1"><Ruler size={12} className="text-forest" /><span className="text-[10px] text-gray-400 uppercase tracking-wider">Dimensions</span></div>
+        <p className="text-sm font-semibold text-charcoal">{analysis.bounds.x.toFixed(1)}×{analysis.bounds.y.toFixed(1)}×{analysis.bounds.z.toFixed(1)}</p>
+      </div>
+      <div className="bg-cream rounded-lg px-3 py-2.5">
+        <div className="flex items-center gap-1.5 mb-1"><Weight size={12} className="text-forest" /><span className="text-[10px] text-gray-400 uppercase tracking-wider">Est. Weight</span></div>
+        <p className="text-sm font-semibold text-charcoal">{analysis.estimatedWeight.toFixed(1)} <span className="text-xs text-gray-400 font-normal">g</span></p>
+      </div>
+      <div className="bg-cream rounded-lg px-3 py-2.5">
+        <div className="flex items-center gap-1.5 mb-1"><Clock size={12} className="text-forest" /><span className="text-[10px] text-gray-400 uppercase tracking-wider">Print Time</span></div>
+        <p className="text-sm font-semibold text-charcoal">{hours > 0 ? `${hours}h ` : ''}{mins}m</p>
+      </div>
+    </div>
+  )
+}
+
+/* ─── Main Quote Page ─── */
 export default function Quote() {
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    description: "",
-    quantity: "1",
-    material: "No preference",
-  });
-  const [files, setFiles] = useState<UploadedFile[]>([]);
-  const [agreed, setAgreed] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [submitMsg, setSubmitMsg] = useState("");
-  const [dragOver, setDragOver] = useState(false);
-  const [modelInfo, setModelInfo] = useState<{ volume: number; dimensions: { x: number; y: number; z: number } } | undefined>(undefined);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { file: ctxFile, setFile: setCtxFile, setConfig } = useQuote()
 
-  const scrollToContactForm = () => {
-    const el = document.getElementById("contact-form-section");
-    if (el) el.scrollIntoView({ behavior: "smooth" });
-  };
+  const [localFile, setLocalFile] = useState<File | null>(null)
+  const [analysis, setAnalysis] = useState<ModelAnalysis | null>(null)
+  const [material, setMaterial] = useState('PLA')
+  const [quantity, setQuantity] = useState(1)
+  const [printColor, setPrintColor] = useState<PrintColor>('black')
+  const [advanced, setAdvanced] = useState(false)
+  const [infill, setInfill] = useState(20)
+  const [walls, setWalls] = useState(2)
+  const [topLayers, setTopLayers] = useState(4)
+  const [bottomLayers, setBottomLayers] = useState(3)
+  const [layerHeight, setLayerHeight] = useState(0.2)
+  const [support, setSupport] = useState('standard')
+  const [finish, setFinish] = useState('standard')
+  const [dragOver, setDragOver] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const sendQuote = trpc.email.sendQuote.useMutation({
-    onSuccess: (data) => {
-      setSubmitted(true);
-      setSubmitMsg(data.message);
-      setFormData({ name: "", email: "", phone: "", description: "", quantity: "1", material: "No preference" });
-      setFiles([]);
-      setAgreed(false);
-      setModelInfo(undefined);
-    },
-    onError: (error) => {
-      setSubmitMsg(error.message || "Failed to send. Please try again or email us directly.");
-    },
-  });
+  // Use file from context if available (from Home upload)
+  const file = localFile || ctxFile
 
-  const handleFileSelect = useCallback((selectedFiles: FileList | null) => {
-    if (!selectedFiles) return;
-    const newFiles: UploadedFile[] = Array.from(selectedFiles).map((file) => ({
-      id: Math.random().toString(36).substring(7),
-      name: file.name,
-      size: file.size > 1024 * 1024
-        ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
-        : `${(file.size / 1024).toFixed(0)} KB`,
-      type: file.name.split(".").pop()?.toUpperCase() || "",
-      file: file,
-    }));
-    setFiles((prev) => [...prev, ...newFiles]);
-  }, []);
+  const materialFactor = materials.find(m => m.name === material)?.factor ?? 1.0
+  const infillFactor = infillOptions.find(o => o.value === infill)?.factor ?? 1.0
+  const layerFactor = layerOptions.find(o => o.value === layerHeight)?.factor ?? 1.0
+  const finishFactor = finishOptions.find(o => o.value === finish)?.factor ?? 1.0
+  const supportFactor = supportOptions.find(o => o.value === support)?.factor ?? 1.0
+  const wallFactor = 1 + (walls - 2) * 0.12
+  const topFactor = 1 + (topLayers - 4) * 0.04
+  const bottomFactor = 1 + (bottomLayers - 3) * 0.04
 
-  const removeFile = (id: string) => setFiles((prev) => prev.filter((f) => f.id !== id));
+  const vol = analysis?.volume ?? 0
+
+  const pricePerUnit = useMemo(() => {
+    if (vol <= 0) return 0
+    const base = 8
+    const volCost = vol * 0.35
+    const total = (base + volCost) * materialFactor * infillFactor * wallFactor * topFactor * bottomFactor * layerFactor * supportFactor * finishFactor
+    return Math.max(total, 5)
+  }, [vol, materialFactor, infillFactor, wallFactor, topFactor, bottomFactor, layerFactor, supportFactor, finishFactor])
+
+  const subtotal = pricePerUnit * quantity
+  const total = subtotal
+
+  // Clear context file when we use it locally
+  useEffect(() => {
+    if (ctxFile && !localFile) {
+      setLocalFile(ctxFile)
+      setCtxFile(null)
+      setAnalysis(null)
+    }
+  }, [ctxFile, localFile, setCtxFile])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    handleFileSelect(e.dataTransfer.files);
-  }, [handleFileSelect]);
+    e.preventDefault()
+    setDragOver(false)
+    const f = e.dataTransfer.files[0]
+    if (f && (f.name.endsWith('.stl') || f.name.endsWith('.obj') || f.name.endsWith('.3mf'))) {
+      setLocalFile(f)
+      setAnalysis(null)
+    }
+  }, [])
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!agreed) return;
-    sendQuote.mutate({
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone || undefined,
-      description: formData.description,
-      quantity: formData.quantity,
-      material: formData.material,
-      files: files.map((f) => f.name),
-    });
-  };
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]
+    if (f) { setLocalFile(f); setAnalysis(null) }
+  }, [])
+
+  const clearFile = useCallback(() => {
+    setLocalFile(null)
+    setAnalysis(null)
+  }, [])
+
+  const handleProceed = useCallback(() => {
+    if (!file || !analysis) return
+    setConfig({
+      fileName: file.name,
+      volume: analysis.volume,
+      material,
+      quantity,
+      color: printColor,
+      infill,
+      walls,
+      topLayers,
+      bottomLayers,
+      layerHeight,
+      support,
+      finish,
+      pricePerUnit,
+      total,
+    })
+    window.location.hash = '/contact'
+  }, [file, analysis, material, quantity, printColor, infill, walls, topLayers, bottomLayers, layerHeight, support, finish, pricePerUnit, total, setConfig])
 
   return (
     <>
       <SEO
-        title="Get a Quote | KiwiKoru 3D"
-        description="Upload your 3D files and get a free quote for 3D printing, CAD design, and product development services in New Zealand."
-        url="https://kiwikoru3d.com/quote"
+        title="Get a 3D Printing Quote | Instant Estimate | KiwiKoru 3D"
+        description="Upload your STL file and get an instant 3D printing quote. Configure material, infill, and finish options. Serving all of New Zealand."
+        path="/quote"
       />
 
-      <section className="pt-24 pb-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4">
-            Get a Free Estimate
-          </h1>
-          <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-            Upload your 3D files, preview your model, and get an estimated price.
-            We&apos;ll get back to you with a detailed quote within 24 hours.
-          </p>
-        </div>
-      </section>
-
-      <section className="py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-6 sm:p-8">
-            <h2 className="text-xl font-semibold text-white mb-4">
-              Preview Your Model
-            </h2>
-            <p className="text-gray-400 text-sm mb-6">
-              Upload an STL or OBJ file to view it in 3D and get an instant price estimate.
+      <section className="bg-forest pt-28 pb-10">
+        <div className="max-w-7xl mx-auto px-6">
+          <ScrollReveal>
+            <h1 className="text-3xl md:text-4xl font-bold text-white">
+              Get Your <span className="text-gold">Quote</span>
+            </h1>
+            <p className="mt-3 text-white/60 max-w-xl">
+              Upload your 3D model for an instant estimate. Configure material and settings to match your needs.
             </p>
-            <EstimateTool onModelInfo={(vol, dims) => setModelInfo({ volume: vol, dimensions: dims })} />
-          </div>
+          </ScrollReveal>
         </div>
       </section>
 
-      <section className="py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-2xl font-bold text-white mb-4">
-            No STL? No problem.
-          </h2>
-          <p className="text-gray-400 mb-8">
-            We can design your idea from a sketch, photo, drawing, or simple description.
-            Our team handles CAD design, product development, reverse engineering, and concept development.
-          </p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {[
-              { icon: PenTool, label: "CAD Design" },
-              { icon: Lightbulb, label: "Product Development" },
-              { icon: RotateCcw, label: "Reverse Engineering" },
-              { icon: Layers, label: "Concept Development" },
-            ].map((s) => (
-              <div key={s.label} className="bg-gray-900/50 border border-gray-800 rounded-xl p-4">
-                <s.icon className="w-6 h-6 text-yellow-500 mx-auto mb-2" />
-                <p className="text-sm text-gray-300">{s.label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <section className="py-10 bg-white">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid lg:grid-cols-[1fr_380px] gap-8">
 
-      <section id="contact-form-section" className="py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-3xl mx-auto">
-          <h2 className="text-2xl font-bold text-white mb-8 text-center">
-            Submit Your Project
-          </h2>
-          <p className="text-gray-400 text-center mb-8">
-            Tell us about your project and upload your files. We accept STL, STEP, OBJ, PDF, JPG, PNG, and sketches.
-          </p>
-
-          {submitted ? (
-            <div className="bg-green-900/20 border border-green-500/30 rounded-xl p-8 text-center">
-              <h3 className="text-xl font-semibold text-green-400 mb-2">
-                Quote Request Sent!
-              </h3>
-              <p className="text-gray-300">{submitMsg}</p>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Your Details</h3>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Name *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      placeholder="Your name"
-                      className="w-full border border-gray-700 bg-gray-900 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20 transition-all"
-                    />
+            {/* LEFT: Upload & Viewer */}
+            <div>
+              {!file && (
+                <ScrollReveal>
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+                    onDragLeave={() => setDragOver(false)}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all ${
+                      dragOver ? 'border-gold bg-gold/5' : 'border-gray-200 hover:border-forest/30 bg-cream'
+                    }`}
+                  >
+                    <Upload size={48} className="mx-auto mb-4 text-forest/40" />
+                    <p className="text-lg font-medium text-charcoal mb-1">Drop your 3D model here</p>
+                    <p className="text-sm text-gray-500 mb-4">or click to browse</p>
+                    <p className="text-xs text-gray-400">Supports STL, OBJ, and 3MF files</p>
+                    <input ref={fileInputRef} type="file" accept=".stl,.obj,.3mf" className="hidden" onChange={handleFileSelect} />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Email *
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      placeholder="your@email.com"
-                      className="w-full border border-gray-700 bg-gray-900 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20 transition-all"
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Phone (optional)
-                    </label>
-                    <input
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      placeholder="+64 21 123 4567"
-                      className="w-full border border-gray-700 bg-gray-900 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20 transition-all"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Project Information</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Project Description *
-                    </label>
-                    <textarea
-                      required
-                      rows={4}
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      placeholder="Describe your project, requirements, and any specific details..."
-                      className="w-full border border-gray-700 bg-gray-900 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20 transition-all resize-none"
-                    />
-                  </div>
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
-                        Quantity
-                      </label>
-                      <select
-                        value={formData.quantity}
-                        onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                        className="w-full border border-gray-700 bg-gray-900 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20 transition-all"
-                      >
-                        <option value="1">1</option>
-                        <option value="2-5">2-5</option>
-                        <option value="6-10">6-10</option>
-                        <option value="11-50">11-50</option>
-                        <option value="50+">50+</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
-                        Material Preference
-                      </label>
-                      <select
-                        value={formData.material}
-                        onChange={(e) => setFormData({ ...formData, material: e.target.value })}
-                        className="w-full border border-gray-700 bg-gray-900 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20 transition-all"
-                      >
-                        <option value="No preference">No preference</option>
-                        <option value="PLA">PLA</option>
-                        <option value="ABS">ABS</option>
-                        <option value="PETG">PETG</option>
-                        <option value="TPU">TPU</option>
-                        <option value="Resin">Resin</option>
-                        <option value="Nylon">Nylon</option>
-                        <option value="Other">Other</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Upload Files</h3>
-                <div
-                  onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                  onDragLeave={() => setDragOver(false)}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all ${
-                    dragOver
-                      ? "border-yellow-500 bg-yellow-500/5"
-                      : "border-gray-700 hover:border-gray-500"
-                  }`}
-                >
-                  <Upload className="w-10 h-10 mx-auto mb-3 text-gray-500" />
-                  <p className="text-sm text-gray-400">
-                    Drag & drop files here, or click to browse
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    STL, STEP, OBJ, PDF, JPG, PNG up to 10MB each
-                  </p>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    onChange={(e) => handleFileSelect(e.target.files)}
-                    className="hidden"
-                  />
-                </div>
-
-                {files.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    {files.map((file) => (
-                      <div
-                        key={file.id}
-                        className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2"
-                      >
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-4 h-4 text-yellow-500" />
-                          <span className="text-sm text-gray-300">{file.name}</span>
-                          <span className="text-xs text-gray-500">({file.size})</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeFile(file.id)}
-                          className="text-gray-500 hover:text-red-400 transition-colors"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  id="agree"
-                  checked={agreed}
-                  onChange={(e) => setAgreed(e.target.checked)}
-                  className="mt-1 w-4 h-4 rounded border-gray-700 bg-gray-900 text-yellow-500 focus:ring-yellow-500/20"
-                />
-                <label htmlFor="agree" className="text-sm text-gray-400">
-                  I agree to be contacted about my project and understand that my files will be used for quotation purposes only.
-                </label>
-              </div>
-
-              <button
-                type="submit"
-                disabled={!agreed || sendQuote.isPending}
-                className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-semibold py-3 px-6 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {sendQuote.isPending ? "Sending..." : "Submit Quote Request"}
-              </button>
-
-              {submitMsg && !submitted && (
-                <p className="text-red-400 text-sm text-center">{submitMsg}</p>
+                </ScrollReveal>
               )}
-            </form>
-          )}
+
+              {file && (
+                <ScrollReveal>
+                  <div className="border border-gray-200 rounded-2xl overflow-hidden bg-cream">
+                    <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-white">
+                      <div className="flex items-center gap-3">
+                        <Box size={18} className="text-forest" />
+                        <span className="text-sm font-medium text-charcoal">{file.name}</span>
+                        <span className="text-xs text-gray-400">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                      </div>
+                      <button onClick={clearFile} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors" title="Remove file">
+                        <X size={16} className="text-gray-400" />
+                      </button>
+                    </div>
+                    <div className="h-[400px] md:h-[450px]">
+                      <ModelViewer file={file} color={printColor} material={material} onAnalysis={setAnalysis} />
+                    </div>
+                    {analysis && <AnalysisPanel analysis={analysis} />}
+                  </div>
+                </ScrollReveal>
+              )}
+
+              {file && analysis && (
+                <ScrollReveal className="mt-6">
+                  <div className="border border-gray-200 rounded-2xl p-6 bg-white">
+                    <h3 className="text-lg font-semibold text-charcoal mb-5 flex items-center gap-2">
+                      <Settings size={20} className="text-forest" /> Print Configuration
+                    </h3>
+
+                    {/* Material */}
+                    <div className="mb-5">
+                      <label className="text-sm font-medium text-charcoal mb-2 block">Material</label>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                        {materials.map((m) => (
+                          <button
+                            key={m.name}
+                            onClick={() => setMaterial(m.name)}
+                            className={`p-3 rounded-xl border-2 text-left transition-all ${
+                              material === m.name ? 'border-forest bg-forest/5' : 'border-gray-100 hover:border-gray-200'
+                            }`}
+                          >
+                            <span className="text-sm font-semibold" style={{ color: m.color }}>{m.name}</span>
+                            <span className="block text-[10px] text-gray-400 mt-0.5">{m.desc}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Quantity + Color */}
+                    <div className="mb-5 grid sm:grid-cols-2 gap-5">
+                      <div>
+                        <label className="text-sm font-medium text-charcoal mb-2 block">Quantity</label>
+                        <div className="flex items-center gap-3">
+                          <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-10 h-10 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50 transition-colors">
+                            <Minus size={16} />
+                          </button>
+                          <span className="w-16 text-center text-lg font-semibold">{quantity}</span>
+                          <button onClick={() => setQuantity(quantity + 1)} className="w-10 h-10 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50 transition-colors">
+                            <Plus size={16} />
+                          </button>
+                          {quantity >= 2 && (
+                            <span className="text-sm text-gold font-medium ml-2">{getBulkLabel(quantity)}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-medium text-charcoal mb-2 block flex items-center gap-1">
+                          <Palette size={14} className="text-forest" /> Colour
+                        </label>
+                        <div className="flex items-center gap-2">
+                          {printColors.map((c) => (
+                            <button
+                              key={c.id}
+                              onClick={() => setPrintColor(c.id)}
+                              title={c.label}
+                              className={`w-8 h-8 rounded-lg border-2 transition-all ${
+                                printColor === c.id ? 'border-gold scale-110 shadow-sm' : 'border-transparent hover:border-gray-300'
+                              }`}
+                              style={c.id === 'other' ? { background: c.bg } : { backgroundColor: c.bg, borderColor: c.border }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Advanced Toggle */}
+                    <button
+                      onClick={() => setAdvanced(!advanced)}
+                      className="flex items-center gap-2 text-sm text-forest font-medium hover:text-forest-light transition-colors mb-4"
+                    >
+                      {advanced ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      Advanced Settings
+                    </button>
+
+                    {advanced && (
+                      <div className="space-y-4 pb-2">
+                        <div>
+                          <label className="text-sm font-medium text-charcoal mb-2 block flex items-center gap-1">
+                            <Layers size={14} className="text-forest" /> Infill Density
+                          </label>
+                          <select value={infill} onChange={(e) => setInfill(Number(e.target.value))} className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold bg-white">
+                            {infillOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-sm font-medium text-charcoal mb-2 block">Wall Count</label>
+                          <div className="flex items-center gap-3">
+                            {[1, 2, 3, 4, 5].map((w) => (
+                              <button key={w} onClick={() => setWalls(w)} className={`w-10 h-10 rounded-lg border-2 text-sm font-medium transition-all ${walls === w ? 'border-forest bg-forest/5 text-forest' : 'border-gray-200 hover:border-gray-300'}`}>{w}</button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium text-charcoal mb-2 block">Top Layers</label>
+                            <div className="flex items-center gap-2">
+                              {[2, 3, 4, 5, 6].map((t) => (
+                                <button key={t} onClick={() => setTopLayers(t)} className={`w-9 h-9 rounded-lg border-2 text-sm transition-all ${topLayers === t ? 'border-forest bg-forest/5 text-forest' : 'border-gray-200 hover:border-gray-300'}`}>{t}</button>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-charcoal mb-2 block">Bottom Layers</label>
+                            <div className="flex items-center gap-2">
+                              {[2, 3, 4, 5, 6].map((b) => (
+                                <button key={b} onClick={() => setBottomLayers(b)} className={`w-9 h-9 rounded-lg border-2 text-sm transition-all ${bottomLayers === b ? 'border-forest bg-forest/5 text-forest' : 'border-gray-200 hover:border-gray-300'}`}>{b}</button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-sm font-medium text-charcoal mb-2 block flex items-center gap-1">
+                            <Thermometer size={14} className="text-forest" /> Layer Height
+                          </label>
+                          <select value={layerHeight} onChange={(e) => setLayerHeight(Number(e.target.value))} className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold bg-white">
+                            {layerOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-sm font-medium text-charcoal mb-2 block">Support Structures</label>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            {supportOptions.map((o) => (
+                              <button key={o.value} onClick={() => setSupport(o.value)} className={`p-2.5 rounded-lg border-2 text-sm transition-all ${support === o.value ? 'border-forest bg-forest/5 text-forest' : 'border-gray-200 hover:border-gray-300'}`}>{o.label}</button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-sm font-medium text-charcoal mb-2 block flex items-center gap-1">
+                            <Sparkles size={14} className="text-forest" /> Surface Finish
+                          </label>
+                          <div className="grid grid-cols-3 gap-2">
+                            {finishOptions.map((o) => (
+                              <button key={o.value} onClick={() => setFinish(o.value)} className={`p-2.5 rounded-lg border-2 text-sm transition-all ${finish === o.value ? 'border-forest bg-forest/5 text-forest' : 'border-gray-200 hover:border-gray-300'}`}>{o.label}</button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </ScrollReveal>
+              )}
+            </div>
+
+            {/* RIGHT: Price Summary */}
+            <div className="lg:sticky lg:top-24 lg:self-start">
+              <ScrollReveal>
+                <div className="border border-gray-200 rounded-2xl p-6 bg-white shadow-sm">
+                  <h3 className="text-lg font-semibold text-charcoal mb-5 flex items-center gap-2">
+                    <DollarSign size={20} className="text-gold" /> Price Estimate
+                  </h3>
+
+                  {!file ? (
+                    <div className="text-center py-8">
+                      <Upload size={40} className="mx-auto mb-3 text-gray-200" />
+                      <p className="text-sm text-gray-400">Upload a 3D model to see your estimate</p>
+                    </div>
+                  ) : !analysis ? (
+                    <div className="text-center py-8">
+                      <div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                      <p className="text-sm text-gray-400">Analysing your model...</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between text-gray-500"><span>Base fee</span><span>$8.00</span></div>
+                        <div className="flex justify-between text-gray-500"><span>Material volume ({analysis.volume.toFixed(1)} cm³)</span><span>${(analysis.volume * 0.35).toFixed(2)}</span></div>
+                        <div className="flex justify-between text-gray-500"><span>Material ({material})</span><span>×{materialFactor.toFixed(1)}</span></div>
+                        <div className="flex justify-between text-gray-500"><span>Infill ({infill}%)</span><span>×{infillFactor.toFixed(2)}</span></div>
+                        {advanced && (<>
+                          <div className="flex justify-between text-gray-500"><span>Walls ({walls})</span><span>×{wallFactor.toFixed(2)}</span></div>
+                          <div className="flex justify-between text-gray-500"><span>Layer height ({layerHeight}mm)</span><span>×{layerFactor.toFixed(2)}</span></div>
+                          <div className="flex justify-between text-gray-500"><span>Supports</span><span>×{supportFactor.toFixed(2)}</span></div>
+                          <div className="flex justify-between text-gray-500"><span>Finish</span><span>×{finishFactor.toFixed(2)}</span></div>
+                        </>)}
+                      </div>
+
+                      <hr className="border-gray-100" />
+
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-500">Price per unit</span>
+                        <span className="text-lg font-semibold text-charcoal">${pricePerUnit.toFixed(2)}</span>
+                      </div>
+
+                      {quantity > 1 && (
+                        <div className="flex justify-between text-sm text-gray-500">
+                          <span>Quantity × {quantity}</span><span>${subtotal.toFixed(2)}</span>
+                        </div>
+                      )}
+
+                      <hr className="border-gray-100" />
+
+                      <div className="flex justify-between items-center pt-1">
+                        <span className="font-semibold text-charcoal">Total Estimate</span>
+                        <span className="text-2xl font-bold text-forest">${total.toFixed(2)} <span className="text-sm font-normal text-gray-400">NZD</span></span>
+                      </div>
+
+                      {quantity >= 50 && (
+                        <div className="flex items-start gap-2 p-3 bg-gold/5 border border-gold/20 rounded-lg mt-3">
+                          <Info size={16} className="text-gold shrink-0 mt-0.5" />
+                          <p className="text-xs text-gray-600">For orders of 50+, please <Link to="/contact" className="text-forest font-medium underline">contact us</Link> for custom pricing.</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="mt-6 space-y-2">
+                    <div className="flex items-center gap-2 text-xs text-gray-400"><Clock size={14} /> Typical lead time: 48-72 hours</div>
+                    <div className="flex items-center gap-2 text-xs text-gray-400"><Truck size={14} /> Nationwide delivery available</div>
+                  </div>
+
+                  {file && analysis && (
+                    <button
+                      onClick={handleProceed}
+                      className="mt-6 w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-gold text-forest-dark font-semibold rounded-lg hover:bg-gold-light transition-all"
+                    >
+                      Proceed to Order <Send size={16} />
+                    </button>
+                  )}
+
+                  <div className="mt-4 flex items-start gap-2 text-xs text-gray-400">
+                    <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                    <p>This is an estimate only. Final pricing may vary based on printability review. We will confirm within 24 hours.</p>
+                  </div>
+                </div>
+              </ScrollReveal>
+
+              {/* Material Guide Link Only */}
+              <ScrollReveal className="mt-4">
+                <Link
+                  to="/materials"
+                  className="flex items-center justify-center gap-2 px-5 py-3 border border-gray-200 rounded-2xl text-sm text-forest font-medium hover:bg-cream transition-all bg-white"
+                >
+                  View full material guide <ArrowRight size={14} />
+                </Link>
+              </ScrollReveal>
+
+              {/* Batch discount note */}
+              <ScrollReveal className="mt-4">
+                <div className="border border-gold/20 rounded-2xl p-5 bg-gold/5">
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    <span className="font-semibold text-gold">Production batch discounts available.</span> For orders of 10+ units, contact us for volume pricing.
+                  </p>
+                </div>
+              </ScrollReveal>
+            </div>
+          </div>
         </div>
       </section>
     </>
-  );
+  )
 }

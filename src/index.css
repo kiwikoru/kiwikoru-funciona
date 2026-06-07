@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -26,90 +26,13 @@
     --input: 0 0% 90%;
     --ring: 36 38% 65%;
     --radius: 0.625rem;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 150 26% 17%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 40 20% 96%;
-    --sidebar-accent-foreground: 0 0% 10%;
-    --sidebar-border: 0 0% 90%;
-    --sidebar-ring: 36 38% 65%;
   }
-
-  * {
-    @apply border-border;
-  }
-
-  html {
-    scroll-behavior: auto;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-
-  body {
-    @apply bg-white text-charcoal font-inter;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-  }
-
-  h1, h2, h3, h4, h5, h6 {
-    text-wrap: balance;
-  }
-
-  p {
-    text-wrap: pretty;
-  }
+  html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+  body { @apply bg-white text-charcoal font-inter; }
 }
-
 @layer utilities {
-  .glass-card {
-    background: rgba(255, 255, 255, 0.01);
-    backdrop-filter: blur(20px) saturate(150%);
-    -webkit-backdrop-filter: blur(20px) saturate(150%);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-    position: relative;
-    overflow: hidden;
-  }
-
-  .glass-card::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(ellipse 90% 40% at 50% 0%, rgba(255, 255, 255, 0.12) 0%, transparent 55%);
-    pointer-events: none;
-  }
-
-  .glass-card-fallback {
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-  }
-
-  @supports (backdrop-filter: blur(20px)) {
-    .glass-card-fallback {
-      background: rgba(255, 255, 255, 0.01);
-      backdrop-filter: blur(20px) saturate(150%);
-      -webkit-backdrop-filter: blur(20px) saturate(150%);
-    }
-  }
-
-  .text-shadow-hero {
-    text-shadow: 0 2px 40px rgba(0, 0, 0, 0.3);
-  }
-
-  .focus-gold:focus-visible {
-    outline: 2px solid #d4b896;
-    outline-offset: 2px;
-  }
+  .focus-gold { @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white; }
 }
-
-@layer base {
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-    }
-  }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
