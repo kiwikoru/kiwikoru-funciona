@@ -1,7 +1,3 @@
 User-agent: *
 Allow: /
-
 Sitemap: https://kiwikoru3d.com/sitemap.xml
-
-# Crawl-delay for respect
-Crawl-delay: 1
