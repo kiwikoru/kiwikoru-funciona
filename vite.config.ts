@@ -21,9 +21,17 @@ export default defineConfig({
       "db": path.resolve(__dirname, "./db"),
     },
   },
-  envDir: path.resolve(__dirname),
   build: {
-    outDir: path.resolve(__dirname, "dist/public"),
-    emptyOutDir: true,
+    outDir: 'dist/public',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          three: ['three', '@react-three/fiber', '@react-three/drei'],
+          vendor: ['react', 'react-dom', 'react-router-dom', 'react-helmet-async'],
+          ui: ['gsap', 'lucide-react'],
+        },
+      },
+    },
   },
+  envDir: path.resolve(__dirname),
 });
