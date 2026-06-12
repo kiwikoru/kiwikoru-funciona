@@ -5,10 +5,11 @@ import { Link } from 'react-router-dom'
 import {
   Upload, X, Box, DollarSign, Settings, ChevronDown, ChevronUp,
   Info, AlertCircle, Layers, Thermometer, Sparkles, ArrowRight, Send,
-  Minus, Plus, Clock, Truck, Palette, Ruler, Weight
+  Minus, Plus, Clock, Truck, Palette
 } from 'lucide-react'
+import * as THREE from 'three'
+import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js'
 import { useQuote, type PrintColor } from '../contexts/QuoteContext'
-import ModelViewer, { type ModelAnalysis } from '../components/ModelViewer'
 
 /* ─── Material data ─── */
 const materials = [
@@ -67,32 +68,159 @@ function getBulkLabel(qty: number): string {
   return 'No discount'
 }
 
-/* ─── Analysis Panel ─── */
-function AnalysisPanel({ analysis }: { analysis: ModelAnalysis | null }) {
-  if (!analysis) return null
-  const hours = Math.floor(analysis.estimatedTime / 60)
-  const mins = Math.round(analysis.estimatedTime % 60)
+/* ─── 3D Viewer Component ─── */
+const colorMap: Record<PrintColor, number> = {
+  black: 0x1a1a1a,
+  white: 0xf5f5f5,
+  red: 0xdc2626,
+  blue: 0x2563eb,
+  yellow: 0xeab308,
+  other: 0xC9A96E,
+}
 
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
-      <div className="bg-cream rounded-lg px-3 py-2.5">
-        <div className="flex items-center gap-1.5 mb-1"><Box size={12} className="text-forest" /><span className="text-[10px] text-gray-400 uppercase tracking-wider">Volume</span></div>
-        <p className="text-sm font-semibold text-charcoal">{analysis.volume.toFixed(1)} <span className="text-xs text-gray-400 font-normal">cm³</span></p>
-      </div>
-      <div className="bg-cream rounded-lg px-3 py-2.5">
-        <div className="flex items-center gap-1.5 mb-1"><Ruler size={12} className="text-forest" /><span className="text-[10px] text-gray-400 uppercase tracking-wider">Dimensions</span></div>
-        <p className="text-sm font-semibold text-charcoal">{analysis.bounds.x.toFixed(1)}×{analysis.bounds.y.toFixed(1)}×{analysis.bounds.z.toFixed(1)}</p>
-      </div>
-      <div className="bg-cream rounded-lg px-3 py-2.5">
-        <div className="flex items-center gap-1.5 mb-1"><Weight size={12} className="text-forest" /><span className="text-[10px] text-gray-400 uppercase tracking-wider">Est. Weight</span></div>
-        <p className="text-sm font-semibold text-charcoal">{analysis.estimatedWeight.toFixed(1)} <span className="text-xs text-gray-400 font-normal">g</span></p>
-      </div>
-      <div className="bg-cream rounded-lg px-3 py-2.5">
-        <div className="flex items-center gap-1.5 mb-1"><Clock size={12} className="text-forest" /><span className="text-[10px] text-gray-400 uppercase tracking-wider">Print Time</span></div>
-        <p className="text-sm font-semibold text-charcoal">{hours > 0 ? `${hours}h ` : ''}{mins}m</p>
-      </div>
-    </div>
-  )
+function STLViewer({ file, color, onVolume }: { file: File; color: PrintColor; onVolume: (v: number) => void }) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const rafRef = useRef<number>(0)
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const scene = new THREE.Scene()
+    scene.background = new THREE.Color(0xf5f5f0)
+
+    const w = container.clientWidth
+    const h = container.clientHeight
+    const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 1000)
+    camera.position.set(0, 0, 80)
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true })
+    renderer.setSize(w, h)
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    renderer.shadowMap.enabled = true
+    container.appendChild(renderer.domElement)
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6))
+    const dir = new THREE.DirectionalLight(0xffffff, 0.8)
+    dir.position.set(10, 20, 10)
+    dir.castShadow = true
+    scene.add(dir)
+    const fill = new THREE.DirectionalLight(0xffffff, 0.3)
+    fill.position.set(-10, 0, -10)
+    scene.add(fill)
+
+    const grid = new THREE.GridHelper(100, 20, 0xcccccc, 0xe0e0e0)
+    grid.position.y = -20
+    scene.add(grid)
+
+    const loader = new STLLoader()
+    const reader = new FileReader()
+    reader.onload = () => {
+      const buffer = reader.result as ArrayBuffer
+      try {
+        const geometry = loader.parse(buffer)
+        geometry.computeVertexNormals()
+        const vol = computeVolume(geometry)
+        onVolume(vol)
+
+        geometry.computeBoundingBox()
+        const box = geometry.boundingBox!
+        const center = new THREE.Vector3()
+        box.getCenter(center)
+        geometry.translate(-center.x, -center.y, -center.z)
+
+        const size = new THREE.Vector3()
+        box.getSize(size)
+        const maxDim = Math.max(size.x, size.y, size.z)
+        const scale = maxDim > 0 ? 40 / maxDim : 1
+        geometry.scale(scale, scale, scale)
+
+        const mat = new THREE.MeshStandardMaterial({ color: colorMap[color], roughness: 0.4, metalness: 0.1 })
+        const mesh = new THREE.Mesh(geometry, mat)
+        mesh.castShadow = true
+        mesh.receiveShadow = true
+        scene.add(mesh)
+
+        // Mouse rotation
+        let isDragging = false
+        let prevX = 0
+        let prevY = 0
+        let rotX = 0
+        let rotY = 0
+
+        const onMouseDown = (e: MouseEvent) => { isDragging = true; prevX = e.clientX; prevY = e.clientY }
+        const onMouseUp = () => { isDragging = false }
+        const onMouseMove = (e: MouseEvent) => {
+          if (!isDragging) return
+          rotY += (e.clientX - prevX) * 0.01
+          rotX += (e.clientY - prevY) * 0.01
+          prevX = e.clientX
+          prevY = e.clientY
+          mesh.rotation.y = rotY
+          mesh.rotation.x = rotX
+        }
+        renderer.domElement.addEventListener('mousedown', onMouseDown)
+        window.addEventListener('mouseup', onMouseUp)
+        window.addEventListener('mousemove', onMouseMove)
+
+        let autoRotate = true
+        const animate = () => {
+          rafRef.current = requestAnimationFrame(animate)
+          if (autoRotate && !isDragging) mesh.rotation.y += 0.005
+          renderer.render(scene, camera)
+        }
+        animate()
+
+        const onMouseEnter = () => { autoRotate = false }
+        const onMouseLeave = () => { autoRotate = true }
+        renderer.domElement.addEventListener('mouseenter', onMouseEnter)
+        renderer.domElement.addEventListener('mouseleave', onMouseLeave)
+
+        const onResize = () => {
+          const cw = container.clientWidth
+          const ch = container.clientHeight
+          camera.aspect = cw / ch
+          camera.updateProjectionMatrix()
+          renderer.setSize(cw, ch)
+        }
+        window.addEventListener('resize', onResize)
+
+        return () => {
+          cancelAnimationFrame(rafRef.current)
+          renderer.domElement.removeEventListener('mousedown', onMouseDown)
+          window.removeEventListener('mouseup', onMouseUp)
+          window.removeEventListener('mousemove', onMouseMove)
+          renderer.domElement.removeEventListener('mouseenter', onMouseEnter)
+          renderer.domElement.removeEventListener('mouseleave', onMouseLeave)
+          window.removeEventListener('resize', onResize)
+        }
+      } catch {
+        onVolume(0)
+      }
+    }
+    reader.readAsArrayBuffer(file)
+
+    return () => {
+      cancelAnimationFrame(rafRef.current)
+      renderer.dispose()
+      if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement)
+    }
+  }, [file, color, onVolume])
+
+  return <div ref={containerRef} className="w-full h-full min-h-[350px] rounded-xl overflow-hidden bg-[#f5f5f0]" />
+}
+
+function computeVolume(geometry: THREE.BufferGeometry): number {
+  const pos = geometry.attributes.position
+  const arr = pos.array as Float32Array
+  let vol = 0
+  for (let i = 0; i < arr.length; i += 9) {
+    const ax = arr[i], ay = arr[i + 1], az = arr[i + 2]
+    const bx = arr[i + 3], by = arr[i + 4], bz = arr[i + 5]
+    const cx = arr[i + 6], cy = arr[i + 7], cz = arr[i + 8]
+    vol += (ax * (by * cz - bz * cy) + ay * (bz * cx - bx * cz) + az * (bx * cy - by * cx)) / 6
+  }
+  return Math.abs(vol) / 1000
 }
 
 /* ─── Main Quote Page ─── */
@@ -100,7 +228,7 @@ export default function Quote() {
   const { file: ctxFile, setFile: setCtxFile, setConfig } = useQuote()
 
   const [localFile, setLocalFile] = useState<File | null>(null)
-  const [analysis, setAnalysis] = useState<ModelAnalysis | null>(null)
+  const [volume, setVolume] = useState(0)
   const [material, setMaterial] = useState('PLA')
   const [quantity, setQuantity] = useState(1)
   const [printColor, setPrintColor] = useState<PrintColor>('black')
@@ -127,15 +255,13 @@ export default function Quote() {
   const topFactor = 1 + (topLayers - 4) * 0.04
   const bottomFactor = 1 + (bottomLayers - 3) * 0.04
 
-  const vol = analysis?.volume ?? 0
-
   const pricePerUnit = useMemo(() => {
-    if (vol <= 0) return 0
+    if (volume <= 0) return 0
     const base = 8
-    const volCost = vol * 0.35
+    const volCost = volume * 0.35
     const total = (base + volCost) * materialFactor * infillFactor * wallFactor * topFactor * bottomFactor * layerFactor * supportFactor * finishFactor
     return Math.max(total, 5)
-  }, [vol, materialFactor, infillFactor, wallFactor, topFactor, bottomFactor, layerFactor, supportFactor, finishFactor])
+  }, [volume, materialFactor, infillFactor, wallFactor, topFactor, bottomFactor, layerFactor, supportFactor, finishFactor])
 
   const subtotal = pricePerUnit * quantity
   const total = subtotal
@@ -145,7 +271,7 @@ export default function Quote() {
     if (ctxFile && !localFile) {
       setLocalFile(ctxFile)
       setCtxFile(null)
-      setAnalysis(null)
+      setVolume(0)
     }
   }, [ctxFile, localFile, setCtxFile])
 
@@ -155,25 +281,25 @@ export default function Quote() {
     const f = e.dataTransfer.files[0]
     if (f && (f.name.endsWith('.stl') || f.name.endsWith('.obj') || f.name.endsWith('.3mf'))) {
       setLocalFile(f)
-      setAnalysis(null)
+      setVolume(0)
     }
   }, [])
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
-    if (f) { setLocalFile(f); setAnalysis(null) }
+    if (f) { setLocalFile(f); setVolume(0) }
   }, [])
 
   const clearFile = useCallback(() => {
     setLocalFile(null)
-    setAnalysis(null)
+    setVolume(0)
   }, [])
 
   const handleProceed = useCallback(() => {
-    if (!file || !analysis) return
+    if (!file) return
     setConfig({
       fileName: file.name,
-      volume: analysis.volume,
+      volume,
       material,
       quantity,
       color: printColor,
@@ -188,7 +314,7 @@ export default function Quote() {
       total,
     })
     window.location.hash = '/contact'
-  }, [file, analysis, material, quantity, printColor, infill, walls, topLayers, bottomLayers, layerHeight, support, finish, pricePerUnit, total, setConfig])
+  }, [file, volume, material, quantity, printColor, infill, walls, topLayers, bottomLayers, layerHeight, support, finish, pricePerUnit, total, setConfig])
 
   return (
     <>
@@ -251,14 +377,19 @@ export default function Quote() {
                       </button>
                     </div>
                     <div className="h-[400px] md:h-[450px]">
-                      <ModelViewer file={file} color={printColor} material={material} onAnalysis={setAnalysis} />
+                      <STLViewer file={file} color={printColor} onVolume={setVolume} />
                     </div>
-                    {analysis && <AnalysisPanel analysis={analysis} />}
+                    {volume > 0 && (
+                      <div className="px-5 py-3 border-t border-gray-100 bg-white flex flex-wrap items-center gap-6 text-sm">
+                        <span className="text-gray-500">Volume: <strong className="text-charcoal">{volume.toFixed(1)} cm³</strong></span>
+                        <span className="text-gray-500">Est. print time: <strong className="text-charcoal">~{Math.ceil(volume * 12 / 60)}h {Math.ceil((volume * 12) % 60)}m</strong></span>
+                      </div>
+                    )}
                   </div>
                 </ScrollReveal>
               )}
 
-              {file && analysis && (
+              {file && volume > 0 && (
                 <ScrollReveal className="mt-6">
                   <div className="border border-gray-200 rounded-2xl p-6 bg-white">
                     <h3 className="text-lg font-semibold text-charcoal mb-5 flex items-center gap-2">
@@ -418,7 +549,7 @@ export default function Quote() {
                       <Upload size={40} className="mx-auto mb-3 text-gray-200" />
                       <p className="text-sm text-gray-400">Upload a 3D model to see your estimate</p>
                     </div>
-                  ) : !analysis ? (
+                  ) : volume <= 0 ? (
                     <div className="text-center py-8">
                       <div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin mx-auto mb-3" />
                       <p className="text-sm text-gray-400">Analysing your model...</p>
@@ -427,7 +558,7 @@ export default function Quote() {
                     <div className="space-y-3">
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between text-gray-500"><span>Base fee</span><span>$8.00</span></div>
-                        <div className="flex justify-between text-gray-500"><span>Material volume ({analysis.volume.toFixed(1)} cm³)</span><span>${(analysis.volume * 0.35).toFixed(2)}</span></div>
+                        <div className="flex justify-between text-gray-500"><span>Material volume ({volume.toFixed(1)} cm³)</span><span>${(volume * 0.35).toFixed(2)}</span></div>
                         <div className="flex justify-between text-gray-500"><span>Material ({material})</span><span>×{materialFactor.toFixed(1)}</span></div>
                         <div className="flex justify-between text-gray-500"><span>Infill ({infill}%)</span><span>×{infillFactor.toFixed(2)}</span></div>
                         {advanced && (<>
@@ -472,7 +603,7 @@ export default function Quote() {
                     <div className="flex items-center gap-2 text-xs text-gray-400"><Truck size={14} /> Nationwide delivery available</div>
                   </div>
 
-                  {file && analysis && (
+                  {file && volume > 0 && (
                     <button
                       onClick={handleProceed}
                       className="mt-6 w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-gold text-forest-dark font-semibold rounded-lg hover:bg-gold-light transition-all"
