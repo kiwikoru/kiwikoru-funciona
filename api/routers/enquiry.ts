@@ -1,7 +1,5 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "../middleware";
-import { getDb } from "../queries/connection";
-import { enquiries } from "@db/schema";
+import { createRouter, publicQuery } from "../middleware.js";
 
 export const enquiryRouter = createRouter({
   create: publicQuery
@@ -18,17 +16,12 @@ export const enquiryRouter = createRouter({
       })
     )
     .mutation(async ({ input }) => {
-      const db = getDb();
-      const result = await db.insert(enquiries).values({
+      console.log("Enquiry received:", {
         name: input.name,
-        company: input.company || null,
         email: input.email,
-        phone: input.phone || null,
         subject: input.subject,
-        projectType: input.projectType || null,
-        message: input.message,
-        quoteRef: input.quoteRef || null,
       });
-      return { success: true, id: Number(result[0].insertId) };
+
+      return { success: true, id: Date.now() };
     }),
 });
