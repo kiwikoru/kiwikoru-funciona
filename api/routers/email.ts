@@ -28,18 +28,27 @@ function safeHtml(value: string | undefined | null) {
 
 export const emailRouter = createRouter({
   send: publicQuery
-    .input(
-      z.object({
-        name: z.string().min(1),
-        email: z.string().email(),
-        subject: z.string().min(1),
-        message: z.string().min(1),
-        company: z.string().optional(),
-        phone: z.string().optional(),
-        projectType: z.string().optional(),
-        quoteRef: z.string().optional(),
-      })
-    )
+   .input(
+  z.object({
+    name: z.string().min(1),
+    email: z.string().email(),
+    subject: z.string().min(1),
+    message: z.string().min(1),
+    company: z.string().optional(),
+    phone: z.string().optional(),
+    projectType: z.string().optional(),
+    quoteRef: z.string().optional(),
+    files: z
+      .array(
+        z.object({
+          name: z.string(),
+          type: z.string().optional(),
+          content: z.string(),
+        })
+      )
+      .optional(),
+  })
+)
     .mutation(async ({ input }) => {
       const resendClient = getResendClient();
 
