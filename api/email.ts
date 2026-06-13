@@ -1,8 +1,7 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "./middleware.js";
-import { env } from "./lib/env.js";
+import { createRouter, publicQuery } from "../middleware.js";
+import { env } from "../lib/env.js";
 import { Resend } from "resend";
-
 const resend = env.resendApiKey
   ? new Resend(env.resendApiKey)
   : null;
