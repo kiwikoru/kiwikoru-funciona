@@ -3,6 +3,7 @@ import { createContext, useContext, useState, type ReactNode } from 'react'
 export type PrintColor = 'black' | 'white' | 'red' | 'blue' | 'yellow' | 'other'
 
 export interface QuoteConfig {
+  file?: File
   fileName: string
   volume: number
   material: string

@@ -53,7 +53,7 @@ function fileToBase64(file: File): Promise<string> {
 return new Promise((resolve, reject) => {
 const reader = new FileReader()
 
-
+```
 reader.onload = () => {
   const result = reader.result as string
   const base64 = result.split(',')[1]
@@ -62,7 +62,7 @@ reader.onload = () => {
 
 reader.onerror = reject
 reader.readAsDataURL(file)
-
+```
 
 })
 }
@@ -96,14 +96,22 @@ setForm(f => ({
 subject: 'Get a Quote',
 message: buildQuoteMessage(config),
 }))
-setConfig(null)
+
+```
+  if (config.file) {
+    setFiles([config.file])
+  }
+
+  setConfig(null)
 }
+```
+
 }, [config, setConfig])
 
 const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
 const newFiles = Array.from(e.target.files || [])
 
-
+```
 const validFiles = newFiles.filter(file => {
   const maxSize = 10 * 1024 * 1024
   return file.size <= maxSize
@@ -114,7 +122,7 @@ setFiles(prev => [...prev, ...validFiles].slice(0, 5))
 if (fileInputRef.current) {
   fileInputRef.current.value = ''
 }
-
+```
 
 }
 
@@ -128,7 +136,7 @@ setSubmitting(true)
 setError('')
 setEmailNote('')
 
-
+```
 try {
   const emailFiles = await Promise.all(
     files.map(async (file) => ({
@@ -169,7 +177,7 @@ try {
   setSubmitting(false)
   setError(err?.message || 'Something went wrong. Please try again.')
 }
-
+```
 
 }
 
@@ -183,7 +191,7 @@ return (
      path="/contact"
    />
 
-
+```
   <section className="bg-forest pt-28 pb-10">
     <div className="max-w-7xl mx-auto px-6">
       <ScrollReveal>
@@ -200,26 +208,33 @@ return (
   <section className="py-16 bg-white">
     <div className="max-w-7xl mx-auto px-6">
       <div className="grid lg:grid-cols-[1fr_380px] gap-12">
-
         <ScrollReveal>
           {submitted ? (
             <div className="border border-gray-200 rounded-2xl p-12 text-center bg-cream">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
                 <CheckCircle size={32} className="text-green-600" />
               </div>
+
               <h2 className="text-2xl font-bold text-charcoal mb-3">Message Sent!</h2>
+
               <p className="text-gray-600 mb-4 max-w-md mx-auto">
                 Thank you for reaching out. We have received your enquiry and will respond within 24 hours.
               </p>
+
               {emailNote && (
                 <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-4 py-2 mb-8 max-w-md mx-auto">
                   {emailNote}
                 </p>
               )}
+
               <div className="flex flex-wrap justify-center gap-3">
-                <Link to="/quote" className="inline-flex items-center gap-2 px-6 py-3 bg-gold text-forest-dark font-semibold rounded-lg hover:bg-gold-light transition-all">
+                <Link
+                  to="/quote"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-gold text-forest-dark font-semibold rounded-lg hover:bg-gold-light transition-all"
+                >
                   Get a Quote <ArrowRight size={16} />
                 </Link>
+
                 <button
                   onClick={() => {
                     setSubmitted(false)
@@ -254,6 +269,7 @@ return (
                     className={inputClass}
                   />
                 </div>
+
                 <div>
                   <label className={labelClass}>Company</label>
                   <input
@@ -278,6 +294,7 @@ return (
                     className={inputClass}
                   />
                 </div>
+
                 <div>
                   <label className={labelClass}>Phone</label>
                   <input
@@ -303,6 +320,7 @@ return (
                     ))}
                   </select>
                 </div>
+
                 <div>
                   <label className={labelClass}>Project Type</label>
                   <select
@@ -336,7 +354,10 @@ return (
                   {files.length > 0 && (
                     <div className="space-y-2 mb-3">
                       {files.map((file, i) => (
-                        <div key={i} className="flex items-center justify-between bg-cream rounded-lg px-3 py-2 text-sm">
+                        <div
+                          key={i}
+                          className="flex items-center justify-between bg-cream rounded-lg px-3 py-2 text-sm"
+                        >
                           <div className="flex items-center gap-2 min-w-0">
                             <Upload size={14} className="text-forest shrink-0" />
                             <span className="truncate text-gray-600">{file.name}</span>
@@ -344,6 +365,7 @@ return (
                               ({(file.size / 1024).toFixed(0)} KB)
                             </span>
                           </div>
+
                           <button
                             type="button"
                             onClick={() => removeFile(i)}
@@ -406,11 +428,13 @@ return (
           <ScrollReveal>
             <div className="border border-gray-200 rounded-2xl p-6 bg-cream">
               <h3 className="text-lg font-semibold text-charcoal mb-5">Contact Information</h3>
+
               <div className="space-y-4">
                 <a href="mailto:kiwikoru3d@gmail.com" className="flex items-start gap-3 group">
                   <div className="w-10 h-10 bg-forest/5 rounded-lg flex items-center justify-center shrink-0">
                     <Mail size={18} className="text-forest" />
                   </div>
+
                   <div>
                     <p className="text-sm font-medium text-charcoal group-hover:text-forest transition-colors">
                       kiwikoru3d@gmail.com
@@ -423,6 +447,7 @@ return (
                   <div className="w-10 h-10 bg-forest/5 rounded-lg flex items-center justify-center shrink-0">
                     <Phone size={18} className="text-forest" />
                   </div>
+
                   <div>
                     <p className="text-sm font-medium text-charcoal group-hover:text-forest transition-colors">
                       +64 027 260 2954
@@ -435,6 +460,7 @@ return (
                   <div className="w-10 h-10 bg-forest/5 rounded-lg flex items-center justify-center shrink-0">
                     <MapPin size={18} className="text-forest" />
                   </div>
+
                   <div>
                     <p className="text-sm font-medium text-charcoal">Whangārei, Northland</p>
                     <p className="text-xs text-gray-400">New Zealand</p>
@@ -450,6 +476,7 @@ return (
                   <div className="w-10 h-10 bg-[#25D366]/10 rounded-lg flex items-center justify-center shrink-0">
                     <MessageSquare size={18} className="text-[#25D366]" />
                   </div>
+
                   <div>
                     <p className="text-sm font-medium text-charcoal group-hover:text-[#25D366] transition-colors">
                       WhatsApp
@@ -464,23 +491,29 @@ return (
           <ScrollReveal>
             <div className="border border-gray-200 rounded-2xl p-6 bg-white">
               <h3 className="text-lg font-semibold text-charcoal mb-4">Business Hours</h3>
+
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-500">Monday – Friday</span>
                   <span className="font-medium text-charcoal">8:00 AM – 5:00 PM</span>
                 </div>
+
                 <div className="flex justify-between">
                   <span className="text-gray-500">Saturday</span>
                   <span className="font-medium text-charcoal">By appointment</span>
                 </div>
+
                 <div className="flex justify-between">
                   <span className="text-gray-500">Sunday</span>
                   <span className="text-gray-400">Closed</span>
                 </div>
               </div>
+
               <div className="mt-4 flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-100 rounded-lg">
                 <Clock size={14} className="text-green-600" />
-                <span className="text-xs text-green-700 font-medium">Currently accepting new projects</span>
+                <span className="text-xs text-green-700 font-medium">
+                  Currently accepting new projects
+                </span>
               </div>
             </div>
           </ScrollReveal>
@@ -488,9 +521,11 @@ return (
           <ScrollReveal>
             <div className="border border-gray-200 rounded-2xl p-6 bg-white">
               <h3 className="text-lg font-semibold text-charcoal mb-3">Need a Quick Quote?</h3>
+
               <p className="text-sm text-gray-600 mb-4">
                 Upload your 3D model and get an instant price estimate with our online quote tool.
               </p>
+
               <Link
                 to="/quote"
                 className="inline-flex items-center gap-2 px-6 py-3 bg-forest text-white font-medium rounded-lg hover:bg-forest-light transition-all w-full justify-center"
@@ -504,7 +539,7 @@ return (
     </div>
   </section>
 </>
-
+```
 
 )
 }
