@@ -53,7 +53,7 @@ function fileToBase64(file: File): Promise<string> {
 return new Promise((resolve, reject) => {
 const reader = new FileReader()
 
-```
+
 reader.onload = () => {
   const result = reader.result as string
   const base64 = result.split(',')[1]
@@ -62,7 +62,7 @@ reader.onload = () => {
 
 reader.onerror = reject
 reader.readAsDataURL(file)
-```
+
 
 })
 }
@@ -97,21 +97,21 @@ subject: 'Get a Quote',
 message: buildQuoteMessage(config),
 }))
 
-```
+
   if (config.file) {
     setFiles([config.file])
   }
 
   setConfig(null)
 }
-```
+
 
 }, [config, setConfig])
 
 const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
 const newFiles = Array.from(e.target.files || [])
 
-```
+
 const validFiles = newFiles.filter(file => {
   const maxSize = 10 * 1024 * 1024
   return file.size <= maxSize
@@ -122,7 +122,7 @@ setFiles(prev => [...prev, ...validFiles].slice(0, 5))
 if (fileInputRef.current) {
   fileInputRef.current.value = ''
 }
-```
+
 
 }
 
@@ -136,7 +136,7 @@ setSubmitting(true)
 setError('')
 setEmailNote('')
 
-```
+
 try {
   const emailFiles = await Promise.all(
     files.map(async (file) => ({
@@ -177,7 +177,7 @@ try {
   setSubmitting(false)
   setError(err?.message || 'Something went wrong. Please try again.')
 }
-```
+
 
 }
 
@@ -191,7 +191,6 @@ return (
      path="/contact"
    />
 
-```
   <section className="bg-forest pt-28 pb-10">
     <div className="max-w-7xl mx-auto px-6">
       <ScrollReveal>
@@ -539,7 +538,7 @@ return (
     </div>
   </section>
 </>
-```
+
 
 )
 }
