@@ -75,7 +75,6 @@ const mins = Math.round(analysis.estimatedTime % 60)
 return ( <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3"> <div className="bg-cream rounded-lg px-3 py-2.5"> <div className="flex items-center gap-1.5 mb-1"> <Box size={12} className="text-forest" /> <span className="text-[10px] text-gray-400 uppercase tracking-wider">Volume</span> </div> <p className="text-sm font-semibold text-charcoal">
 {analysis.volume.toFixed(1)} <span className="text-xs text-gray-400 font-normal">cm³</span> </p> </div>
 
-```
   <div className="bg-cream rounded-lg px-3 py-2.5">
     <div className="flex items-center gap-1.5 mb-1">
       <Ruler size={12} className="text-forest" />
@@ -106,7 +105,7 @@ return ( <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3"> <div class
     </p>
   </div>
 </div>
-```
+
 
 )
 }
@@ -147,7 +146,7 @@ const vol = analysis?.volume ?? 0
 const pricePerUnit = useMemo(() => {
 if (vol <= 0) return 0
 
-```
+
 const base = 8
 const volCost = vol * 0.35
 const calculatedTotal =
@@ -162,7 +161,7 @@ const calculatedTotal =
   finishFactor
 
 return Math.max(calculatedTotal, 5)
-```
+
 
 }, [
 vol,
@@ -191,26 +190,26 @@ const handleDrop = useCallback((e: React.DragEvent) => {
 e.preventDefault()
 setDragOver(false)
 
-```
+
 const f = e.dataTransfer.files[0]
 
 if (f && (f.name.endsWith('.stl') || f.name.endsWith('.obj') || f.name.endsWith('.3mf'))) {
   setLocalFile(f)
   setAnalysis(null)
 }
-```
+
 
 }, [])
 
 const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
 const f = e.target.files?.[0]
 
-```
+
 if (f) {
   setLocalFile(f)
   setAnalysis(null)
 }
-```
+
 
 }, [])
 
@@ -222,7 +221,7 @@ setAnalysis(null)
 const handleProceed = useCallback(() => {
 if (!file || !analysis) return
 
-```
+
 setConfig({
   file,
   fileName: file.name,
@@ -242,7 +241,7 @@ setConfig({
 })
 
 window.location.hash = '/contact'
-```
+
 
 }, [
 file,
@@ -269,7 +268,7 @@ return (
      path="/quote"
    />
 
-```
+
   <section className="bg-forest pt-28 pb-10">
     <div className="max-w-7xl mx-auto px-6">
       <ScrollReveal>
@@ -708,7 +707,7 @@ return (
     </div>
   </section>
 </>
-```
+
 
 )
 }
