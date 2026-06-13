@@ -1,24 +1,34 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "../middleware.js";
-import { env } from "../lib/env.js";
+import { createRouter, publicQuery } from "./middleware.js";
+import { env } from "./lib/env.js";
 import { Resend } from "resend";
 
 function getResendClient() {
 const apiKey = env.resendApiKey || process.env.RESEND_API_KEY || "";
 
 if (!apiKey) {
-console.error("[EMAIL] Missing RESEND_API_KEY");
+console.error("[EMAIL] Missing RESEND_API_KEY", {
+envKeys: Object.keys(process.env).filter((key) => key.includes("RESEND")),
+});
+
+```
 return null;
+```
+
 }
 
 return new Resend(apiKey);
 }
 
 const FROM_EMAIL =
-env.emailFrom || process.env.RESEND_FROM || "Kiwi Koru 3D [no-reply@kiwikoru.co.nz](mailto:no-reply@kiwikoru.co.nz)";
+env.emailFrom ||
+process.env.RESEND_FROM ||
+"Kiwi Koru 3D [no-reply@kiwikoru.co.nz](mailto:no-reply@kiwikoru.co.nz)";
 
 const TO_EMAIL =
-env.emailTo || process.env.RESEND_TO || "[kiwikoru3d@gmail.com](mailto:kiwikoru3d@gmail.com)";
+env.emailTo ||
+process.env.RESEND_TO ||
+"[kiwikoru3d@gmail.com](mailto:kiwikoru3d@gmail.com)";
 
 function safeHtml(text: string) {
 return text
