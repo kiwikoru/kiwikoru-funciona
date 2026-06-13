@@ -122,6 +122,24 @@ function SunIcon({ size, className }: { size: number; className?: string }) {
   )
 }
 
+/* Filament spool icon — symbolic roll of 3D printing filament */
+function FilamentSpool({ size = 14, className = '' }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      {/* Spool body */}
+      <ellipse cx="12" cy="12" rx="7" ry="9" />
+      {/* Top flange */}
+      <ellipse cx="12" cy="5" rx="7" ry="2.5" />
+      {/* Bottom flange */}
+      <ellipse cx="12" cy="19" rx="7" ry="2.5" />
+      {/* Center hole */}
+      <ellipse cx="12" cy="12" rx="2.5" ry="3.5" />
+      {/* Filament line */}
+      <path d="M12 1.5c0 0-3 2-3 4.5" opacity="0.5" />
+    </svg>
+  )
+}
+
 export default function Materials() {
   return (
     <>
@@ -162,7 +180,7 @@ export default function Materials() {
                     {materials.map((m) => (
                       <th key={m.name} className="text-center py-4 px-3">
                         <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold" style={{ backgroundColor: m.color + '15', color: m.color }}>
-                          {m.name}
+                          <FilamentSpool size={13} /> {m.name}
                         </span>
                       </th>
                     ))}
@@ -215,7 +233,7 @@ export default function Materials() {
                     {/* Material Header */}
                     <div className="p-8 flex flex-col justify-center" style={{ backgroundColor: m.color + '08' }}>
                       <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: m.color + '15' }}>
-                        <span className="text-2xl font-bold" style={{ color: m.color }}>{m.name}</span>
+                        <span className="inline-flex items-center gap-2 text-2xl font-bold" style={{ color: m.color }}><FilamentSpool size={20} /> {m.name}</span>
                       </div>
                       <p className="text-sm text-gray-500 mb-1">{m.fullName}</p>
                       <p className="text-sm font-medium text-gold mb-4">{m.priceLabel}</p>
@@ -316,6 +334,7 @@ export default function Materials() {
             </Link>
           </ScrollReveal>
         </div>
+   
       </section>
     </>
   )

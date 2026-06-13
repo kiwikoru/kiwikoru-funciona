@@ -155,20 +155,25 @@ export default function Hero() {
       <div className="relative z-10 max-w-7xl mx-auto px-6 pt-28 pb-20 w-full">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div>
-            <h1 className="text-white leading-none tracking-tight">
-              <span className="block text-5xl md:text-7xl font-bold">YOUR IDEAS.</span>
-              <span className="block text-5xl md:text-7xl font-bold text-gold mt-2">MADE IN REAL 3D.</span>
+            <p className="text-gold text-xs font-semibold tracking-[0.2em] uppercase mb-4">Custom Manufacturing & 3D Printing Solutions</p>
+            <h1 className="text-white leading-[0.95] tracking-tight">
+              <span className="block text-4xl sm:text-5xl md:text-7xl font-bold">Your Ideas.</span>
+              <span className="block text-4xl sm:text-5xl md:text-7xl font-bold text-gold mt-2 md:mt-3">Made in Real 3D.</span>
             </h1>
-            <p className="mt-6 text-white/60 text-lg leading-relaxed max-w-lg">
-              Professional 3D printing and product development in New Zealand. From rapid prototypes to finished products, we bring your concepts to life.
+            <p className="mt-6 md:mt-8 text-white/50 text-base md:text-lg leading-relaxed max-w-lg">
+              From rapid prototypes to small-batch production — KiwiKoru delivers precision 3D printing and custom manufacturing solutions across New Zealand.
             </p>
-            <div className="mt-8 flex flex-wrap gap-4">
-              <Link to="/quote" className="inline-flex items-center gap-2 px-7 py-3.5 bg-gold text-forest-dark font-semibold rounded-lg hover:bg-gold-light transition-all duration-300 hover:-translate-y-0.5">
-                GET INSTANT ESTIMATE <ArrowRight size={18} />
+            <div className="mt-8 md:mt-10 flex flex-wrap gap-3">
+              <Link to="/quote" className="inline-flex items-center gap-2 px-6 py-3.5 bg-gold text-forest-dark font-semibold rounded-lg hover:bg-gold-light transition-all duration-300 hover:-translate-y-0.5 text-sm">
+                Get Instant Estimate <ArrowRight size={16} />
               </Link>
-              <Link to="/contact" className="inline-flex items-center gap-2 px-7 py-3.5 border border-white/30 text-white font-medium rounded-lg hover:bg-white/10 transition-all duration-300">
-                <HelpCircle size={18} /> NEED HELP WITH YOUR PROJECT?
+              <Link to="/contact" className="inline-flex items-center gap-2 px-6 py-3.5 border border-white/25 text-white font-medium rounded-lg hover:bg-white/[0.06] transition-all duration-300 text-sm">
+                <HelpCircle size={16} /> Talk to an Expert
               </Link>
+            </div>
+            <div className="mt-6 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-gold animate-pulse" />
+              <span className="text-white/40 text-xs tracking-wide">Proudly made in New Zealand &middot; Ships nationwide</span>
             </div>
           </div>
           <div className="flex justify-center lg:justify-end">

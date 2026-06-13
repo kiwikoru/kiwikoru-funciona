@@ -62,6 +62,7 @@ export default function Contact() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [files, setFiles] = useState<File[]>([])
+  const [emailNote, setEmailNote] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [form, setForm] = useState({
@@ -74,17 +75,8 @@ export default function Contact() {
     message: '',
   })
 
-  const createEnquiry = trpc.enquiry.create.useMutation({
-    onSuccess: () => {
-      setSubmitting(false)
-      setSubmitted(true)
-      setError('')
-    },
-    onError: (err) => {
-      setSubmitting(false)
-      setError(err.message || 'Something went wrong. Please try again.')
-    },
-  })
+  const createEnquiry = trpc.enquiry.create.useMutation()
+  const sendEmail = trpc.email.send.useMutation()
 
   // Pre-fill message from quote config
   useEffect(() => {
@@ -111,16 +103,41 @@ export default function Contact() {
     e.preventDefault()
     setSubmitting(true)
     setError('')
+    setEmailNote('')
 
-    createEnquiry.mutate({
-      name: form.name,
-      company: form.company || undefined,
-      email: form.email,
-      phone: form.phone || undefined,
-      subject: form.subject,
-      projectType: form.projectType || undefined,
-      message: form.message,
-    })
+    try {
+      // 1. Save to database (never lose a lead)
+      await createEnquiry.mutateAsync({
+        name: form.name,
+        company: form.company || undefined,
+        email: form.email,
+        phone: form.phone || undefined,
+        subject: form.subject,
+        projectType: form.projectType || undefined,
+        message: form.message,
+      })
+
+      // 2. Send email notification
+      const emailResult = await sendEmail.mutateAsync({
+        name: form.name,
+        email: form.email,
+        subject: form.subject,
+        message: form.message,
+        company: form.company || undefined,
+        phone: form.phone || undefined,
+        projectType: form.projectType || undefined,
+      })
+
+      if (emailResult.note) {
+        setEmailNote(emailResult.note)
+      }
+
+      setSubmitting(false)
+      setSubmitted(true)
+    } catch (err: any) {
+      setSubmitting(false)
+      setError(err?.message || 'Something went wrong. Please try again.')
+    }
   }
 
   const inputClass = 'w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent transition-all bg-white'
@@ -158,9 +175,14 @@ export default function Contact() {
                     <CheckCircle size={32} className="text-green-600" />
                   </div>
                   <h2 className="text-2xl font-bold text-charcoal mb-3">Message Sent!</h2>
-                  <p className="text-gray-600 mb-8 max-w-md mx-auto">
+                  <p className="text-gray-600 mb-4 max-w-md mx-auto">
                     Thank you for reaching out. We have received your enquiry and will respond within 24 hours.
                   </p>
+                  {emailNote && (
+                    <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-4 py-2 mb-8 max-w-md mx-auto">
+                      {emailNote}
+                    </p>
+                  )}
                   <div className="flex flex-wrap justify-center gap-3">
                     <Link to="/quote" className="inline-flex items-center gap-2 px-6 py-3 bg-gold text-forest-dark font-semibold rounded-lg hover:bg-gold-light transition-all">
                       Get a Quote <ArrowRight size={16} />
@@ -221,7 +243,7 @@ export default function Contact() {
                       value={form.message}
                       onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
                       placeholder="Tell us about your project..."
-                      className={`${inputClass} resize-none font-mono text-xs leading-relaxed`}
+                      className={`${inputClass} resize-none text-sm leading-relaxed`}
                     />
                   </div>
 

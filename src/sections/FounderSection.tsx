@@ -42,9 +42,11 @@ export default function FounderSection() {
               <h2 className="text-3xl md:text-4xl font-bold text-charcoal leading-tight">
                 Experience Behind Every Project
               </h2>
+              <p className="mt-3 text-lg font-semibold text-charcoal">Rod Castagno</p>
+              <p className="text-xs text-gray-400 tracking-wide uppercase">an industrial designer</p>
               <div className="mt-6 space-y-4 text-gray-600 text-sm leading-relaxed">
                 <p>
-                  KiwiKoru is led by an industrial designer with over a decade of hands-on experience
+                  Rod leads KiwiKoru with over a decade of hands-on experience
                   in product development, rapid prototyping, and digital manufacturing. Every project
                   that comes through the workshop benefits from a deep understanding of design for
                   manufacturing, material selection, and production optimisation.
@@ -55,7 +57,8 @@ export default function FounderSection() {
                   design the solution, and deliver parts that work. No shortcuts, no compromises.
                 </p>
                 <p>
-                  Based in Whangārei, Northland, and proudly serving clients across New Zealand
+                  Backed by a team of designers and engineers ready to solve any challenge.
+                  Based in Whangārei, Northland, proudly serving clients across New Zealand
                   with a passion for solving real problems through efficient design.
                 </p>
               </div>

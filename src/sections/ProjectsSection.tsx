@@ -2,10 +2,10 @@ import ScrollReveal from '../components/ScrollReveal'
 
 const projects = [
   { title: 'Replacement Bracket', industry: 'Industrial', material: 'PETG', app: 'Functional', desc: 'Custom bracket for machinery where OEM part was discontinued.', image: '/images/projects/4_3D_Printing_Replacement_Parts_Protote.png' },
-  { title: 'Irrigation Valve', industry: 'Agricultural', material: 'ASA', app: 'Outdoor', desc: 'UV-resistant valve connector for farm irrigation system.', image: '/images/projects/1_irrigation_connectors_3D_Models_to.png' },
+  { title: 'Irrigation Valve', industry: 'Agricultural', material: 'ASA', app: 'Outdoor', desc: 'UV-resistant valve connector for farm irrigation system.', image: '/images/projects/1__Drip_Irrigation_Fittings_Kit_Irrigation.png' },
   { title: 'Dashboard Mount', industry: 'Automotive', material: 'ABS', app: 'Interior', desc: 'Custom phone mount integrated into vehicle dashboard.', image: '/images/projects/8_Objet_Geometrics_3D_Prints_Electric.png' },
-  { title: 'Product Prototype', industry: 'Consumer', material: 'PLA', app: 'Prototyping', desc: 'Rapid prototype for consumer electronics housing.', image: '/images/projects/2_Custom_Design_3D_Printing_Mobile.png' },
-  { title: 'Architectural Model', industry: 'Design', material: 'PLA', app: 'Presentation', desc: 'Detailed scale model for client presentation.', image: '/images/projects/3_White_Architectural_Model_Making.png' },
+  { title: 'Product Prototype', industry: 'Consumer', material: 'PLA', app: 'Prototyping', desc: 'Rapid prototype for consumer electronics housing.', image: '/images/projects/1_Everything_You_Should_Know_About.png' },
+  { title: 'Architectural Model', industry: 'Design', material: 'PLA', app: 'Presentation', desc: 'Detailed scale model for client presentation.', image: '/images/projects/9_3D_Printing_Architecture_Models_Architectural.png' },
   { title: 'Promotional Keychains', industry: 'Corporate', material: 'PLA', app: 'Branding', desc: '100 branded keychains for conference giveaway.', image: '/images/projects/10_Custom_3D_Printed_Logo_Keychains.png' },
 ]
 
