@@ -213,8 +213,10 @@ if (f) {
 }, [])
 
 const clearFile = useCallback(() => {
-setLocalFile(null)
-setAnalysis(null)
+  setLocalFile(null)
+  setCtxFile(null)
+  setAnalysis(null)
+}, [setCtxFile])
 }, [])
 
 const handleProceed = useCallback(() => {
@@ -258,6 +260,15 @@ const handleProceed = useCallback(() => {
   total,
   setCtxFile,
   setConfig,
+])
+
+return (
+  <>
+    <SEO
+      title="Get a 3D Printing Quote | Instant Estimate | KiwiKoru 3D"
+      description="Upload your STL file and get an instant 3D printing quote. Configure material, infill, and finish options. Serving all of New Zealand."
+      path="/quote"
+    />
 ])
 return (
   <></>
