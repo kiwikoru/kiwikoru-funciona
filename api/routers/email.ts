@@ -26,31 +26,53 @@ function safeHtml(value: string | undefined | null) {
     .replace(/\n/g, "<br/>");
 }
 
+function cleanBase64(content: string) {
+  if (!content) return "";
+  if (content.includes(",")) return content.split(",")[1];
+  return content;
+}
+
+function createAttachments(
+  files?: { name: string; type?: string; content: string }[]
+) {
+  if (!files || files.length === 0) return undefined;
+
+  const attachments = files
+    .filter((file) => file.content && file.content.length > 0)
+    .map((file) => ({
+      filename: file.name,
+      content: cleanBase64(file.content),
+    }));
+
+  return attachments.length > 0 ? attachments : undefined;
+}
+
 export const emailRouter = createRouter({
   send: publicQuery
-   .input(
-  z.object({
-    name: z.string().min(1),
-    email: z.string().email(),
-    subject: z.string().min(1),
-    message: z.string().min(1),
-    company: z.string().optional(),
-    phone: z.string().optional(),
-    projectType: z.string().optional(),
-    quoteRef: z.string().optional(),
-    files: z
-      .array(
-        z.object({
-          name: z.string(),
-          type: z.string().optional(),
-          content: z.string(),
-        })
-      )
-      .optional(),
-  })
-)
+    .input(
+      z.object({
+        name: z.string().min(1),
+        email: z.string().email(),
+        subject: z.string().min(1),
+        message: z.string().min(1),
+        company: z.string().optional(),
+        phone: z.string().optional(),
+        projectType: z.string().optional(),
+        quoteRef: z.string().optional(),
+        files: z
+          .array(
+            z.object({
+              name: z.string(),
+              type: z.string().optional(),
+              content: z.string(),
+            })
+          )
+          .optional(),
+      })
+    )
     .mutation(async ({ input }) => {
       const resendClient = getResendClient();
+      const attachments = createAttachments(input.files);
 
       console.log("[ENQUIRY]", {
         to: RESEND_TO,
@@ -58,6 +80,9 @@ export const emailRouter = createRouter({
         name: input.name,
         subject: input.subject,
         hasResendApiKey: Boolean(RESEND_API_KEY),
+        filesCount: input.files?.length || 0,
+        fileNames: input.files?.map((file) => file.name) || [],
+        attachmentsCount: attachments?.length || 0,
       });
 
       if (!resendClient) {
@@ -69,7 +94,7 @@ export const emailRouter = createRouter({
       }
 
       try {
-        await resendClient.emails.send({
+        const ownerEmail = await resendClient.emails.send({
           from: RESEND_FROM,
           to: RESEND_TO,
           replyTo: input.email,
@@ -104,54 +129,28 @@ export const emailRouter = createRouter({
 
               <hr />
 
+              <p><strong>Attachments received:</strong> ${attachments?.length || 0}</p>
+              <p><strong>Attachment names:</strong> ${safeHtml(
+                input.files?.map((file) => file.name).join(", ") || "-"
+              )}</p>
+
+              <hr />
+
               <p><strong>Message:</strong></p>
               <p>${safeHtml(input.message)}</p>
             </div>
           `,
+          attachments,
         });
 
-        await resendClient.emails.send({
-          from: RESEND_FROM,
-          to: input.email,
-          subject: "We received your enquiry — Kiwi Koru 3D",
-          html: `
-            <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111;">
-              <h2>Thank you for contacting Kiwi Koru 3D</h2>
+        if (ownerEmail.error) {
+          console.error("[EMAIL OWNER ERROR]", ownerEmail.error);
 
-              <p>Hi ${safeHtml(input.name)},</p>
+          return {
+            success: false,
+            emailSent: false,
+            note: ownerEmail.error.message || "Owner email failed.",
+          };
+        }
 
-              <p>Thank you for contacting <strong>Kiwi Koru 3D</strong>.</p>
-
-              <p>We have received your enquiry and will get back to you as soon as possible.</p>
-
-              <p>
-                If you need immediate assistance, please contact us at
-                <strong>kiwikoru3d@gmail.com</strong>
-                or through our WhatsApp chat available on our website.
-              </p>
-
-              <br />
-
-              <p>Kind regards,</p>
-              <p><strong>Kiwi Koru 3D</strong></p>
-              <p>3D Printing, Design & Prototyping</p>
-            </div>
-          `,
-        });
-
-        return {
-          success: true,
-          emailSent: true,
-          message: "Emails sent successfully",
-        };
-      } catch (err: any) {
-        console.error("[EMAIL ERROR]", err?.message || err);
-
-        return {
-          success: false,
-          emailSent: false,
-          note: "Email delivery failed. Check Vercel logs and Resend logs.",
-        };
-      }
-    }),
-});
+        const clie
