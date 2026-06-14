@@ -94,7 +94,7 @@ export const emailRouter = createRouter({
       }
 
       try {
-        const ownerEmail = await resendClient.emails.send({
+        await resendClient.emails.send({
           from: RESEND_FROM,
           to: RESEND_TO,
           replyTo: input.email,
@@ -140,17 +140,53 @@ export const emailRouter = createRouter({
               <p>${safeHtml(input.message)}</p>
             </div>
           `,
-          attachments,
+          ...(attachments ? { attachments } : {}),
         });
 
-        if (ownerEmail.error) {
-          console.error("[EMAIL OWNER ERROR]", ownerEmail.error);
+        await resendClient.emails.send({
+          from: RESEND_FROM,
+          to: input.email,
+          subject: "We received your enquiry — Kiwi Koru 3D",
+          html: `
+            <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111;">
+              <h2>Thank you for contacting Kiwi Koru 3D</h2>
 
-          return {
-            success: false,
-            emailSent: false,
-            note: ownerEmail.error.message || "Owner email failed.",
-          };
-        }
+              <p>Hi ${safeHtml(input.name)},</p>
 
-        const clie
+              <p>Thank you for contacting <strong>Kiwi Koru 3D</strong>.</p>
+
+              <p>We have received your enquiry and will get back to you as soon as possible.</p>
+
+              <p>
+                If you need immediate assistance, please contact us at
+                <strong>kiwikoru3d@gmail.com</strong>
+                or through our WhatsApp chat available on our website.
+              </p>
+
+              <br />
+
+              <p>Kind regards,</p>
+              <p><strong>Kiwi Koru 3D</strong></p>
+              <p>3D Printing, Design & Prototyping</p>
+            </div>
+          `,
+        });
+
+        return {
+          success: true,
+          emailSent: true,
+          message: "Emails sent successfully",
+          filesReceived: input.files?.length || 0,
+          attachmentsSent: attachments?.length || 0,
+        };
+      } catch (err: any) {
+        console.error("[EMAIL ERROR]", err?.message || err);
+
+        return {
+          success: false,
+          emailSent: false,
+          note: "Email delivery failed. Check Vercel logs and Resend logs.",
+        };
+      }
+    }),
+});
