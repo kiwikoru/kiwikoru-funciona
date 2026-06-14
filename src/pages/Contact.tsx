@@ -90,25 +90,22 @@ const createEnquiry = trpc.enquiry.create.useMutation()
 const sendEmail = trpc.email.send.useMutation()
 
 useEffect(() => {
-if (config) {
-setForm(f => ({
-...f,
-subject: 'Get a Quote',
-message: buildQuoteMessage(config),
-}))
+  if (config) {
+    setForm(f => ({
+      ...f,
+      subject: 'Get a Quote',
+      message: buildQuoteMessage(config),
+    }))
 
+    const fileFromQuote = config.file || quoteFile
 
-  const fileFromQuote = config.file || quoteFile
+    if (fileFromQuote) {
+      setFiles([fileFromQuote])
+    }
 
-  if (fileFromQuote) {
-    setFiles([fileFromQuote])
+    setConfig(null)
+    setQuoteFile(null)
   }
-
-  setConfig(null)
-  setQuoteFile(null)
-}
-
-
 }, [config, quoteFile, setConfig, setQuoteFile])
 
 const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
