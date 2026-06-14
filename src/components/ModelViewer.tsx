@@ -348,7 +348,7 @@ function computeVolume(geometry: THREE.BufferGeometry): number {
 
   return Math.abs(volumeMm3) / 1000
 }
-}
+
 
 function mergeGeometries(geos: THREE.BufferGeometry[]): THREE.BufferGeometry {
   const merged = new THREE.BufferGeometry()
