@@ -68,7 +68,7 @@ reader.readAsDataURL(file)
 }
 
 export default function Contact() {
-const { config, setConfig } = useQuote()
+const { config, setConfig, file: quoteFile, setFile: setQuoteFile } = useQuote()
 const [submitted, setSubmitted] = useState(false)
 const [submitting, setSubmitting] = useState(false)
 const [error, setError] = useState('')
@@ -98,15 +98,18 @@ message: buildQuoteMessage(config),
 }))
 
 
-  if (config.file) {
-    setFiles([config.file])
+  const fileFromQuote = config.file || quoteFile
+
+  if (fileFromQuote) {
+    setFiles([fileFromQuote])
   }
 
   setConfig(null)
+  setQuoteFile(null)
 }
 
 
-}, [config, setConfig])
+}, [config, quoteFile, setConfig, setQuoteFile])
 
 const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
 const newFiles = Array.from(e.target.files || [])
