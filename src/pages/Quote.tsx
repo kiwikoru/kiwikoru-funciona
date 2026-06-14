@@ -218,7 +218,49 @@ setAnalysis(null)
 }, [])
 
 const handleProceed = useCallback(() => {
-if (!file || !analysis) return
+  if (!file || !analysis) return
+
+  setCtxFile(file)
+
+  setConfig({
+    file,
+    fileName: file.name,
+    volume: analysis.volume,
+    material,
+    quantity,
+    color: printColor,
+    infill,
+    walls,
+    topLayers,
+    bottomLayers,
+    layerHeight,
+    support,
+    finish,
+    pricePerUnit,
+    total,
+  })
+
+  window.location.hash = '/contact'
+}, [
+  file,
+  analysis,
+  material,
+  quantity,
+  printColor,
+  infill,
+  walls,
+  topLayers,
+  bottomLayers,
+  layerHeight,
+  support,
+  finish,
+  pricePerUnit,
+  total,
+  setCtxFile,
+  setConfig,
+])
+return (
+  <></>
 
 total,
 setCtxFile,
@@ -262,15 +304,17 @@ support,
 finish,
 pricePerUnit,
 total,
+setCtxFile,
 setConfig,
 ])
 
 return (
-<> <SEO
-     title="Get a 3D Printing Quote | Instant Estimate | KiwiKoru 3D"
-     description="Upload your STL file and get an instant 3D printing quote. Configure material, infill, and finish options. Serving all of New Zealand."
-     path="/quote"
-   />
+  <>
+    <SEO
+      title="Get a 3D Printing Quote | Instant Estimate | KiwiKoru 3D"
+      description="Upload your STL file and get an instant 3D printing quote. Configure material, infill, and finish options. Serving all of New Zealand."
+      path="/quote"
+    />
 
 
   <section className="bg-forest pt-28 pb-10">
