@@ -303,9 +303,11 @@ const handleAddToCart = useCallback(() => {
   total,
   clearFile,
 ])
-    if (!file || !analysis || !scaledAnalysis) return
 
-    const quoteConfig = {
+const handleProceed = useCallback(async () => {
+  if (!file || !analysis || !scaledAnalysis) return
+
+  const quoteConfig = {
       file,
       fileName: file.name,
       volume: scaledAnalysis.volume,
