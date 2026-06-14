@@ -259,7 +259,7 @@ export default function Quote() {
     setAnalysis(null)
   }, [setCtxFile])
 
-  constconst handleAddToCart = useCallback(() => {
+const handleAddToCart = useCallback(() => {
   if (!file || !analysis || !scaledAnalysis) return
 
   addItem({
