@@ -94,6 +94,7 @@ async function sendContactEmails(input: z.infer<typeof contactInput>) {
     replyTo: input.email,
     filesCount: input.files?.length || 0,
     filesNames: input.files?.map((file) => file.name) || [],
+    attachmentsCount: attachments?.length || 0,
   });
 
   if (!resend) {
@@ -104,7 +105,7 @@ async function sendContactEmails(input: z.infer<typeof contactInput>) {
     };
   }
 
-  await resend.emails.send({
+  const ownerEmail = await resend.emails.send({
     from: FROM_EMAIL,
     to: TO_EMAIL,
     replyTo: input.email,
@@ -123,6 +124,11 @@ async function sendContactEmails(input: z.infer<typeof contactInput>) {
 
         <hr />
 
+        <p><strong>Attachments received:</strong> ${attachments?.length || 0}</p>
+        <p><strong>Attachment names:</strong> ${safeHtml(input.files?.map((file) => file.name).join(", ") || "-")}</p>
+
+        <hr />
+
         <p><strong>Message:</strong></p>
         <p>${safeHtml(input.message)}</p>
       </div>
@@ -130,7 +136,17 @@ async function sendContactEmails(input: z.infer<typeof contactInput>) {
     attachments,
   });
 
-  await resend.emails.send({
+  if (ownerEmail.error) {
+    console.error("[EMAIL CONTACT ERROR]", ownerEmail.error);
+
+    return {
+      success: false,
+      emailSent: false,
+      note: ownerEmail.error.message || "Owner email failed.",
+    };
+  }
+
+  const clientEmail = await resend.emails.send({
     from: FROM_EMAIL,
     to: input.email,
     subject: "We received your enquiry — Kiwi Koru 3D",
@@ -156,11 +172,16 @@ async function sendContactEmails(input: z.infer<typeof contactInput>) {
     `,
   });
 
+  if (clientEmail.error) {
+    console.error("[EMAIL CLIENT ERROR]", clientEmail.error);
+  }
+
   return {
     success: true,
     emailSent: true,
     message: "Emails sent successfully",
     filesReceived: input.files?.length || 0,
+    attachmentsSent: attachments?.length || 0,
   };
 }
 
