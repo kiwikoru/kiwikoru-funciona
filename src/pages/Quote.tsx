@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import SEO from '../components/SEO'
 import ScrollReveal from '../components/ScrollReveal'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   Upload, X, Box, DollarSign, Settings, ChevronDown, ChevronUp,
   Info, AlertCircle, Layers, Thermometer, Sparkles, ArrowRight, Send,
@@ -118,6 +118,7 @@ function AnalysisPanel({ analysis }: { analysis: ModelAnalysis | null }) {
 }
 
 export default function Quote() {
+    const navigate = useNavigate()
   const { file: ctxFile, setFile: setCtxFile, setConfig } = useQuote()
 
   const [localFile, setLocalFile] = useState<File | null>(null)
@@ -241,7 +242,7 @@ export default function Quote() {
       total,
     })
 
-    window.location.hash = '/contact'
+   navigate('/contact')
   }, [
     file,
     analysis,
@@ -259,6 +260,7 @@ export default function Quote() {
     total,
     setCtxFile,
     setConfig,
+     navigate,
   ])
 
   return (
