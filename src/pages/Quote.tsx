@@ -217,7 +217,6 @@ const clearFile = useCallback(() => {
   setCtxFile(null)
   setAnalysis(null)
 }, [setCtxFile])
-}, [])
 
 const handleProceed = useCallback(() => {
   if (!file || !analysis) return
