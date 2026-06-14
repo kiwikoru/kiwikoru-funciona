@@ -175,54 +175,55 @@ setFiles(prev => prev.filter((_, i) => i !== index))
 }
 
 const handleSubmit = async (e: FormEvent) => {
-e.preventDefault()
-setSubmitting(true)
-setError('')
-setEmailNote('')
+  e.preventDefault()
+  setSubmitting(true)
+  setError('')
+  setEmailNote('')
 
+  try {
+    const emailFiles = await Promise.all(
+      files.map(async (file) => ({
+        name: file.name,
+        type: file.type || 'application/octet-stream',
+        content: await fileToBase64(file),
+      }))
+    )
 
-try {
-  const emailFiles = await Promise.all(
-    files.map(async (file) => ({
-      name: file.name,
-      type: file.type || 'application/octet-stream',
-      content: await fileToBase64(file),
-    }))
-  )
+    const emailResult = await sendEmail.mutateAsync({
+      name: form.name,
+      email: form.email,
+      subject: form.subject,
+      message: form.message,
+      company: form.company || undefined,
+      phone: form.phone || undefined,
+      projectType: form.projectType || undefined,
+      files: emailFiles,
+    })
 
-  await createEnquiry.mutateAsync({
-    name: form.name,
-    company: form.company || undefined,
-    email: form.email,
-    phone: form.phone || undefined,
-    subject: form.subject,
-    projectType: form.projectType || undefined,
-    message: form.message,
-  })
+    if (emailResult.note) {
+      setEmailNote(emailResult.note)
+    }
 
-  const emailResult = await sendEmail.mutateAsync({
-    name: form.name,
-    email: form.email,
-    subject: form.subject,
-    message: form.message,
-    company: form.company || undefined,
-    phone: form.phone || undefined,
-    projectType: form.projectType || undefined,
-    files: emailFiles,
-  })
+    try {
+      await createEnquiry.mutateAsync({
+        name: form.name,
+        company: form.company || undefined,
+        email: form.email,
+        phone: form.phone || undefined,
+        subject: form.subject,
+        projectType: form.projectType || undefined,
+        message: form.message,
+      })
+    } catch (dbErr) {
+      console.warn('Enquiry DB save failed, but email was already sent:', dbErr)
+    }
 
-  if (emailResult.note) {
-    setEmailNote(emailResult.note)
+    setSubmitting(false)
+    setSubmitted(true)
+  } catch (err: any) {
+    setSubmitting(false)
+    setError(err?.message || 'Something went wrong. Please try again.')
   }
-
-  setSubmitting(false)
-  setSubmitted(true)
-} catch (err: any) {
-  setSubmitting(false)
-  setError(err?.message || 'Something went wrong. Please try again.')
-}
-
-
 }
 
 const inputClass = 'w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent transition-all bg-white'
