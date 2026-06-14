@@ -114,102 +114,112 @@ export default function ModelViewer({ file, color, material, onAnalysis }: Props
     const ext = file.name.split('.').pop()?.toLowerCase()
     const reader = new FileReader()
 
-    reader.onload = () => {
-      const buffer = reader.result as ArrayBuffer
+    
+      reader.onload = () => {
+  const buffer = reader.result as ArrayBuffer
 
+  try {
+    let geometry: THREE.BufferGeometry | null = null
+
+    if (ext === 'stl') {
+      const loader = new STLLoader()
+      geometry = loader.parse(buffer)
+    } else if (ext === 'obj') {
+      const text = new TextDecoder().decode(buffer)
+      const obj = new OBJLoader().parse(text)
+      const geos: THREE.BufferGeometry[] = []
+
+      obj.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          const g = (child as THREE.Mesh).geometry.clone()
+          g.applyMatrix4(child.matrixWorld)
+          geos.push(g)
+        }
+      })
+
+      if (geos.length > 0) {
+        geometry = mergeGeometries(geos)
+      }
+    } else if (ext === '3mf') {
       try {
-        let geometry: THREE.BufferGeometry | null = null
-
-        if (ext === 'stl') {
-          const loader = new STLLoader()
-          geometry = loader.parse(buffer)
-        } else if (ext === 'obj') {
-          const text = new TextDecoder().decode(buffer)
-          const obj = new OBJLoader().parse(text)
-          const geos: THREE.BufferGeometry[] = []
-          obj.traverse((child) => {
-            if ((child as THREE.Mesh).isMesh) {
-              const g = (child as THREE.Mesh).geometry.clone()
-              g.applyMatrix4(child.matrixWorld)
-              geos.push(g)
-            }
-          })
-          if (geos.length > 0) geometry = mergeGeometries(geos)
-        } else if (ext === '3mf') {
-          try {
-            geometry = new STLLoader().parse(buffer)
-          } catch {
-            setError('3MF parsing requires additional libraries. Please convert to STL or OBJ.')
-            setLoading(false)
-            return
-          }
-        }
-
-        if (!geometry) {
-          setError('Could not parse the 3D model. Check the file format.')
-          setLoading(false)
-          return
-        }
-
-       geometry.computeVertexNormals()
-
-geometry.computeBoundingBox()
-const originalBox = geometry.boundingBox!
-const originalSize = new THREE.Vector3()
-originalBox.getSize(originalSize)
-
-const volumeCm3 = computeVolume(geometry)
-
-const center = new THREE.Vector3()
-originalBox.getCenter(center)
-geometry.translate(-center.x, -center.y, -center.z)
-
-const maxDim = Math.max(originalSize.x, originalSize.y, originalSize.z)
-const s = maxDim > 0 ? 30 / maxDim : 1
-geometry.scale(s, s, s)
-
-geometry.computeBoundingBox()
-const sBox = geometry.boundingBox!
-const sSize = new THREE.Vector3()
-sBox.getSize(sSize)
-
-const triCount = geometry.index
-  ? geometry.index.count / 3
-  : geometry.attributes.position.count / 3
-
-const density = MATERIAL_DENSITY[material] || 1.24
-const weight = volumeCm3 * density
-const estMin = Math.max(20, volumeCm3 * 10)
-
-onAnalysis({
-  volume: volumeCm3,
-  bounds: {
-    x: originalSize.x,
-    y: originalSize.y,
-    z: originalSize.z,
-  },
-  triangles: Math.round(triCount),
-  estimatedWeight: weight,
-  estimatedTime: estMin,
-})
-        })
-
-        const matColor = colorMap[color] || 0x1A2F23
-        const mat = new THREE.MeshStandardMaterial({ color: matColor, roughness: 0.35, metalness: 0.15 })
-        const mesh = new THREE.Mesh(geometry, mat)
-        mesh.castShadow = true
-        mesh.receiveShadow = true
-        mesh.position.y = sSize.y / 2 - 12
-        scene.add(mesh)
-        meshRef.current = mesh
-
-        controls.target.set(0, mesh.position.y, 0)
-        setLoading(false)
+        geometry = new STLLoader().parse(buffer)
       } catch {
-        setError('Failed to load model. Please check the file.')
+        setError('3MF parsing requires additional libraries. Please convert to STL or OBJ.')
         setLoading(false)
+        return
       }
     }
+
+    if (!geometry) {
+      setError('Could not parse the 3D model. Check the file format.')
+      setLoading(false)
+      return
+    }
+
+    geometry.computeVertexNormals()
+
+    geometry.computeBoundingBox()
+    const originalBox = geometry.boundingBox!
+    const originalSize = new THREE.Vector3()
+    originalBox.getSize(originalSize)
+
+    const volumeCm3 = computeVolume(geometry)
+
+    const center = new THREE.Vector3()
+    originalBox.getCenter(center)
+    geometry.translate(-center.x, -center.y, -center.z)
+
+    const maxDim = Math.max(originalSize.x, originalSize.y, originalSize.z)
+    const s = maxDim > 0 ? 30 / maxDim : 1
+    geometry.scale(s, s, s)
+
+    geometry.computeBoundingBox()
+    const sBox = geometry.boundingBox!
+    const sSize = new THREE.Vector3()
+    sBox.getSize(sSize)
+
+    const triCount = geometry.index
+      ? geometry.index.count / 3
+      : geometry.attributes.position.count / 3
+
+    const density = MATERIAL_DENSITY[material] || 1.24
+    const weight = volumeCm3 * density
+    const estMin = Math.max(20, volumeCm3 * 10)
+
+    onAnalysis({
+      volume: volumeCm3,
+      bounds: {
+        x: originalSize.x,
+        y: originalSize.y,
+        z: originalSize.z,
+      },
+      triangles: Math.round(triCount),
+      estimatedWeight: weight,
+      estimatedTime: estMin,
+    })
+
+    const matColor = colorMap[color] || 0x1A2F23
+    const mat = new THREE.MeshStandardMaterial({
+      color: matColor,
+      roughness: 0.35,
+      metalness: 0.15,
+    })
+
+    const mesh = new THREE.Mesh(geometry, mat)
+    mesh.castShadow = true
+    mesh.receiveShadow = true
+    mesh.position.y = sSize.y / 2 - 12
+
+    scene.add(mesh)
+    meshRef.current = mesh
+
+    controls.target.set(0, mesh.position.y, 0)
+    setLoading(false)
+  } catch {
+    setError('Failed to load model. Please check the file.')
+    setLoading(false)
+  }
+}
 
     reader.readAsArrayBuffer(file)
 
