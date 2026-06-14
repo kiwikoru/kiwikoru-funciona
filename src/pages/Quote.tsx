@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
+import { useCart } from '../contexts/CartContext'
 import SEO from '../components/SEO'
 import ScrollReveal from '../components/ScrollReveal'
 import { Link, useNavigate } from 'react-router-dom'
@@ -131,6 +132,7 @@ function AnalysisPanel({ analysis }: { analysis: ModelAnalysis | null }) {
 export default function Quote() {
     const navigate = useNavigate()
   const { file: ctxFile, setFile: setCtxFile, setConfig } = useQuote()
+  const { addItem } = useCart()
 
   const [localFile, setLocalFile] = useState<File | null>(null)
   const [analysis, setAnalysis] = useState<ModelAnalysis | null>(null)
@@ -257,7 +259,50 @@ export default function Quote() {
     setAnalysis(null)
   }, [setCtxFile])
 
-  const handleProceed = useCallback(async () => {
+  constconst handleAddToCart = useCallback(() => {
+  if (!file || !analysis || !scaledAnalysis) return
+
+  addItem({
+    file,
+    fileName: file.name,
+    volume: scaledAnalysis.volume,
+    dimensions: scaledAnalysis.bounds,
+    material,
+    quantity,
+    color: printColor,
+    scalePercent,
+    infill,
+    walls,
+    topLayers,
+    bottomLayers,
+    layerHeight,
+    support,
+    finish,
+    pricePerUnit,
+    total,
+  })
+
+  clearFile()
+}, [
+  file,
+  analysis,
+  scaledAnalysis,
+  addItem,
+  material,
+  quantity,
+  printColor,
+  scalePercent,
+  infill,
+  walls,
+  topLayers,
+  bottomLayers,
+  layerHeight,
+  support,
+  finish,
+  pricePerUnit,
+  total,
+  clearFile,
+])
     if (!file || !analysis || !scaledAnalysis) return
 
     const quoteConfig = {
@@ -824,13 +869,22 @@ export default function Quote() {
                   </div>
 
                   {file && analysis && (
-                    <button
-                      onClick={handleProceed}
-                      className="mt-6 w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-gold text-forest-dark font-semibold rounded-lg hover:bg-gold-light transition-all"
-                    >
-                      Proceed to Order <Send size={16} />
-                    </button>
-                  )}
+  <div className="mt-6 space-y-2">
+    <button
+      onClick={handleAddToCart}
+      className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 border border-forest text-forest font-semibold rounded-lg hover:bg-forest hover:text-white transition-all"
+    >
+      Add to Cart <Plus size={16} />
+    </button>
+
+    <button
+      onClick={handleProceed}
+      className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-gold text-forest-dark font-semibold rounded-lg hover:bg-gold-light transition-all"
+    >
+      Proceed to Order <Send size={16} />
+    </button>
+  </div>
+)}
 
                   <div className="mt-4 flex items-start gap-2 text-xs text-gray-400">
                     <AlertCircle size={14} className="shrink-0 mt-0.5" />
