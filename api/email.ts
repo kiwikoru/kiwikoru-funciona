@@ -48,11 +48,12 @@ function createAttachments(
 ) {
   if (!files || files.length === 0) return undefined;
 
-  return files.map((file) => ({
-    filename: file.name,
-    content: cleanBase64(file.content),
-    contentType: file.type || "application/octet-stream",
-  }));
+  return files
+    .filter((file) => file.content && file.content.length > 0)
+    .map((file) => ({
+      filename: file.name,
+      content: cleanBase64(file.content),
+    }));
 }
 
 const fileInput = z.object({
