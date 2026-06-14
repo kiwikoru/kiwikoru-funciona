@@ -250,12 +250,12 @@ const vol = scaledAnalysis?.volume ?? 0
   }, [setCtxFile])
 
   const handleProceed = useCallback(async () => {
-    if (!file || !analysis) return
+  if (!file || !analysis || !scaledAnalysis) return
 
     const quoteConfig = {
       file,
       fileName: file.name,
-      volume: analysis.volume,
+      volume: scaledAnalysis.volume,
       material,
       quantity,
       color: printColor,
@@ -411,7 +411,7 @@ const vol = scaledAnalysis?.volume ?? 0
                       />
                     </div>
 
-                    {analysis && <AnalysisPanel analysis={analysis} />}
+                    {scaledAnalysis && <AnalysisPanel analysis={scaledAnalysis} />}
                   </div>
                 </ScrollReveal>
               )}
@@ -422,7 +422,112 @@ const vol = scaledAnalysis?.volume ?? 0
                     <h3 className="text-lg font-semibold text-charcoal mb-5 flex items-center gap-2">
                       <Settings size={20} className="text-forest" /> Print Configuration
                     </h3>
-                    {analysis && scaledAnalysis && (
+                   {file && analysis && (
+  <ScrollReveal className="mt-6">
+    <div className="border border-gray-200 rounded-2xl p-6 bg-white">
+      <h3 className="text-lg font-semibold text-charcoal mb-5 flex items-center gap-2">
+        <Settings size={20} className="text-forest" /> Print Configuration
+      </h3>
+
+      {analysis && scaledAnalysis && (
+        <div className="mb-5 border border-gray-200 rounded-2xl p-5 bg-cream">
+          <h4 className="text-sm font-semibold text-charcoal mb-4">
+            Scale / Dimensions
+          </h4>
+
+          <div className="grid sm:grid-cols-4 gap-4">
+            <div>
+              <label className="text-xs text-gray-400 uppercase tracking-wider">
+                Scale
+              </label>
+              <div className="flex items-center gap-2 mt-1">
+                <input
+                  type="number"
+                  min="10"
+                  max="300"
+                  step="1"
+                  value={scalePercent}
+                  onChange={(e) =>
+                    setScalePercent(
+                      Math.max(10, Math.min(300, Number(e.target.value) || 100))
+                    )
+                  }
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+                />
+                <span className="text-sm text-gray-400">%</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs text-gray-400 uppercase tracking-wider">
+                X Width
+              </label>
+              <div className="flex items-center gap-2 mt-1">
+                <input
+                  type="number"
+                  step="0.1"
+                  value={Number(scaledAnalysis.bounds.x.toFixed(1))}
+                  onChange={(e) => {
+                    const nextX = Number(e.target.value)
+                    if (!nextX || !analysis.bounds.x) return
+                    setScalePercent((nextX / analysis.bounds.x) * 100)
+                  }}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+                />
+                <span className="text-sm text-gray-400">mm</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs text-gray-400 uppercase tracking-wider">
+                Y Height
+              </label>
+              <div className="flex items-center gap-2 mt-1">
+                <input
+                  type="number"
+                  step="0.1"
+                  value={Number(scaledAnalysis.bounds.y.toFixed(1))}
+                  onChange={(e) => {
+                    const nextY = Number(e.target.value)
+                    if (!nextY || !analysis.bounds.y) return
+                    setScalePercent((nextY / analysis.bounds.y) * 100)
+                  }}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+                />
+                <span className="text-sm text-gray-400">mm</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs text-gray-400 uppercase tracking-wider">
+                Z Depth
+              </label>
+              <div className="flex items-center gap-2 mt-1">
+                <input
+                  type="number"
+                  step="0.1"
+                  value={Number(scaledAnalysis.bounds.z.toFixed(1))}
+                  onChange={(e) => {
+                    const nextZ = Number(e.target.value)
+                    if (!nextZ || !analysis.bounds.z) return
+                    setScalePercent((nextZ / analysis.bounds.z) * 100)
+                  }}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+                />
+                <span className="text-sm text-gray-400">mm</span>
+              </div>
+            </div>
+          </div>
+
+          <p className="mt-3 text-xs text-gray-400">
+            Changing one dimension scales the model proportionally. Volume, weight,
+            print time and price update automatically.
+          </p>
+        </div>
+      )}
+
+      <div className="mb-5">
+        <label className="text-sm font-medium text-charcoal mb-2 block">Material</label>
   <div className="mb-5 border border-gray-200 rounded-2xl p-5 bg-cream">
     <h4 className="text-sm font-semibold text-charcoal mb-4">
       Scale / Dimensions
