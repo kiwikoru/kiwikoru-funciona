@@ -106,7 +106,6 @@ return ( <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3"> <div class
   </div>
 </div>
 
-
 )
 }
 
@@ -220,6 +219,11 @@ setAnalysis(null)
 
 const handleProceed = useCallback(() => {
 if (!file || !analysis) return
+
+total,
+setCtxFile,
+setConfig,
+])
 
 
 setConfig({
