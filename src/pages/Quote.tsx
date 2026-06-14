@@ -66,6 +66,17 @@ function getBulkLabel(qty: number): string {
   return 'No discount'
 }
 
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
 function AnalysisPanel({ analysis }: { analysis: ModelAnalysis | null }) {
   if (!analysis) return null
 
@@ -219,12 +230,10 @@ export default function Quote() {
     setAnalysis(null)
   }, [setCtxFile])
 
-  const handleProceed = useCallback(() => {
+  const handleProceed = useCallback(async () => {
     if (!file || !analysis) return
 
-    setCtxFile(file)
-
-    setConfig({
+    const quoteConfig = {
       file,
       fileName: file.name,
       volume: analysis.volume,
@@ -240,9 +249,46 @@ export default function Quote() {
       finish,
       pricePerUnit,
       total,
-    })
+    }
 
-   navigate('/contact')
+    setCtxFile(file)
+    setConfig(quoteConfig)
+
+    try {
+      const dataUrl = await fileToDataUrl(file)
+
+      sessionStorage.setItem(
+        'kiwikoru_quote_request',
+        JSON.stringify({
+          config: {
+            fileName: file.name,
+            volume: analysis.volume,
+            material,
+            quantity,
+            color: printColor,
+            infill,
+            walls,
+            topLayers,
+            bottomLayers,
+            layerHeight,
+            support,
+            finish,
+            pricePerUnit,
+            total,
+          },
+          file: {
+            name: file.name,
+            type: file.type || 'application/octet-stream',
+            lastModified: file.lastModified,
+            dataUrl,
+          },
+        })
+      )
+    } catch (err) {
+      console.error('[QUOTE] Could not save quote file fallback', err)
+    }
+
+    navigate('/contact')
   }, [
     file,
     analysis,

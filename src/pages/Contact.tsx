@@ -67,6 +67,16 @@ reader.readAsDataURL(file)
 })
 }
 
+
+async function dataUrlToFile(dataUrl: string, name: string, type: string, lastModified?: number): Promise<File> {
+  const response = await fetch(dataUrl)
+  const blob = await response.blob()
+  return new File([blob], name, {
+    type: type || 'application/octet-stream',
+    lastModified: lastModified || Date.now(),
+  })
+}
+
 export default function Contact() {
 const { config, setConfig, file: quoteFile, setFile: setQuoteFile } = useQuote()
 const [submitted, setSubmitted] = useState(false)
@@ -90,21 +100,55 @@ const createEnquiry = trpc.enquiry.create.useMutation()
 const sendEmail = trpc.email.send.useMutation()
 
 useEffect(() => {
-  if (config) {
+  let cancelled = false
+
+  async function loadQuoteRequest() {
+    let nextConfig = config
+    let nextFile = config?.file || quoteFile
+
+    if (!nextConfig) {
+      const savedQuote = sessionStorage.getItem('kiwikoru_quote_request')
+
+      if (savedQuote) {
+        try {
+          const parsed = JSON.parse(savedQuote)
+          nextConfig = parsed.config
+
+          if (!nextFile && parsed.file?.dataUrl) {
+            nextFile = await dataUrlToFile(
+              parsed.file.dataUrl,
+              parsed.file.name,
+              parsed.file.type,
+              parsed.file.lastModified
+            )
+          }
+        } catch (err) {
+          console.error('[CONTACT] Could not read quote fallback', err)
+        }
+      }
+    }
+
+    if (cancelled || !nextConfig) return
+
     setForm(f => ({
       ...f,
       subject: 'Get a Quote',
-      message: buildQuoteMessage(config),
+      message: buildQuoteMessage(nextConfig),
     }))
 
-    const fileFromQuote = config.file || quoteFile
-
-    if (fileFromQuote) {
-      setFiles([fileFromQuote])
+    if (nextFile) {
+      setFiles([nextFile])
     }
 
     setConfig(null)
     setQuoteFile(null)
+    sessionStorage.removeItem('kiwikoru_quote_request')
+  }
+
+  loadQuoteRequest()
+
+  return () => {
+    cancelled = true
   }
 }, [config, quoteFile, setConfig, setQuoteFile])
 
