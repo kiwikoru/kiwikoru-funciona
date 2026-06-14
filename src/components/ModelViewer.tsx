@@ -317,16 +317,37 @@ export default function ModelViewer({ file, color, material, onAnalysis }: Props
 }
 
 function computeVolume(geometry: THREE.BufferGeometry): number {
-  const arr = (geometry.attributes.position.array as Float32Array)
-  let vol = 0
-  for (let i = 0; i < arr.length; i += 9) {
-    vol += (
-      arr[i] * (arr[i + 4] * arr[i + 8] - arr[i + 5] * arr[i + 7]) +
-      arr[i + 1] * (arr[i + 5] * arr[i + 6] - arr[i + 3] * arr[i + 8]) +
-      arr[i + 2] * (arr[i + 3] * arr[i + 7] - arr[i + 4] * arr[i + 6])
-    ) / 6
+  const position = geometry.attributes.position
+  if (!position) return 0
+
+  const index = geometry.index
+
+  const vA = new THREE.Vector3()
+  const vB = new THREE.Vector3()
+  const vC = new THREE.Vector3()
+
+  let volumeMm3 = 0
+
+  if (index) {
+    for (let i = 0; i < index.count; i += 3) {
+      vA.fromBufferAttribute(position, index.getX(i))
+      vB.fromBufferAttribute(position, index.getX(i + 1))
+      vC.fromBufferAttribute(position, index.getX(i + 2))
+
+      volumeMm3 += vA.dot(vB.cross(vC)) / 6
+    }
+  } else {
+    for (let i = 0; i < position.count; i += 3) {
+      vA.fromBufferAttribute(position, i)
+      vB.fromBufferAttribute(position, i + 1)
+      vC.fromBufferAttribute(position, i + 2)
+
+      volumeMm3 += vA.dot(vB.cross(vC)) / 6
+    }
   }
-  return Math.abs(vol) / 1000
+
+  return Math.abs(volumeMm3) / 1000
+}
 }
 
 function mergeGeometries(geos: THREE.BufferGeometry[]): THREE.BufferGeometry {
