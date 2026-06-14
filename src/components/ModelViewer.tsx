@@ -90,6 +90,9 @@ export default function ModelViewer({ file, color, material, onAnalysis }: Props
     const grid = new THREE.GridHelper(100, 20, 0xd0d0d0, 0xe8e8e8)
     grid.position.y = -15
     scene.add(grid)
+    const axesHelper = new THREE.AxesHelper(22)
+axesHelper.position.set(-42, -14.5, -42)
+scene.add(axesHelper)
 
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(200, 200),
@@ -309,6 +312,20 @@ export default function ModelViewer({ file, color, material, onAnalysis }: Props
           </span>
           <span className="flex items-center gap-1 text-[10px] text-gray-400 bg-white/70 backdrop-blur-sm px-2 py-1 rounded">
             <Move size={9} /> Pan
+          </span>
+        </div>
+      )}
+
+      {!loading && !error && (
+        <div className="absolute bottom-3 right-3 flex items-center gap-2 z-10 bg-white/80 backdrop-blur-sm px-3 py-2 rounded-lg shadow-sm text-[10px] text-gray-600">
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-red-500" /> X Width
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-green-500" /> Y Height
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-blue-500" /> Z Depth
           </span>
         </div>
       )}

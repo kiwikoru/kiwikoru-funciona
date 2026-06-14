@@ -137,6 +137,7 @@ export default function Quote() {
   const [material, setMaterial] = useState('PLA')
   const [quantity, setQuantity] = useState(1)
   const [printColor, setPrintColor] = useState<PrintColor>('black')
+  const [scalePercent, setScalePercent] = useState(100)
   const [advanced, setAdvanced] = useState(false)
   const [infill, setInfill] = useState(20)
   const [walls, setWalls] = useState(2)
@@ -160,7 +161,25 @@ export default function Quote() {
   const topFactor = 1 + (topLayers - 4) * 0.04
   const bottomFactor = 1 + (bottomLayers - 3) * 0.04
 
-  const vol = analysis?.volume ?? 0
+ const scaleFactor = scalePercent / 100
+
+const scaledAnalysis = useMemo(() => {
+  if (!analysis) return null
+
+  return {
+    ...analysis,
+    volume: analysis.volume * Math.pow(scaleFactor, 3),
+    estimatedWeight: analysis.estimatedWeight * Math.pow(scaleFactor, 3),
+    estimatedTime: analysis.estimatedTime * Math.pow(scaleFactor, 3),
+    bounds: {
+      x: analysis.bounds.x * scaleFactor,
+      y: analysis.bounds.y * scaleFactor,
+      z: analysis.bounds.z * scaleFactor,
+    },
+  }
+}, [analysis, scaleFactor])
+
+const vol = scaledAnalysis?.volume ?? 0
 
   const pricePerUnit = useMemo(() => {
     if (vol <= 0) return 0
@@ -403,6 +422,93 @@ export default function Quote() {
                     <h3 className="text-lg font-semibold text-charcoal mb-5 flex items-center gap-2">
                       <Settings size={20} className="text-forest" /> Print Configuration
                     </h3>
+                    {analysis && scaledAnalysis && (
+  <div className="mb-5 border border-gray-200 rounded-2xl p-5 bg-cream">
+    <h4 className="text-sm font-semibold text-charcoal mb-4">
+      Scale / Dimensions
+    </h4>
+
+    <div className="grid sm:grid-cols-4 gap-4">
+      <div>
+        <label className="text-xs text-gray-400 uppercase tracking-wider">
+          Scale
+        </label>
+        <div className="flex items-center gap-2 mt-1">
+          <input
+            type="number"
+            min="10"
+            max="300"
+            step="1"
+            value={scalePercent}
+            onChange={(e) =>
+              setScalePercent(
+                Math.max(10, Math.min(300, Number(e.target.value) || 100))
+              )
+            }
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+          />
+          <span className="text-sm text-gray-400">%</span>
+        </div>
+      </div>
+
+      <div>
+        <label className="text-xs text-gray-400 uppercase tracking-wider">
+          X Width
+        </label>
+        <div className="flex items-center gap-2 mt-1">
+          <input
+            type="number"
+            step="0.1"
+            value={Number(scaledAnalysis.bounds.x.toFixed(1))}
+            onChange={(e) => {
+              const nextX = Number(e.target.value)
+              if (!nextX || !analysis.bounds.x) return
+              setScalePercent((nextX / analysis.bounds.x) * 100)
+            }}
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+          />
+          <span className="text-sm text-gray-400">mm</span>
+        </div>
+      </div>
+
+      <div>
+        <label className="text-xs text-gray-400 uppercase tracking-wider">
+          Y Height
+        </label>
+        <div className="flex items-center gap-2 mt-1">
+          <input
+            type="number"
+            step="0.1"
+            value={Number(scaledAnalysis.bounds.y.toFixed(1))}
+            onChange={(e) => {
+              const nextY = Number(e.target.value)
+              if (!nextY || !analysis.bounds.y) return
+              setScalePercent((nextY / analysis.bounds.y) * 100)
+            }}
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+          />
+          <span className="text-sm text-gray-400">mm</span>
+        </div>
+      </div>
+
+      <div>
+        <label className="text-xs text-gray-400 uppercase tracking-wider">
+          Z Depth
+        </label>
+        <div className="flex items-center gap-2 mt-1">
+          <input
+            type="number"
+            step="0.1"
+            value={Number(scaledAnalysis.bounds.z.toFixed(1))}
+            onChange={(e) => {
+              const nextZ = Number(e.target.value)
+              if (!nextZ || !analysis.bounds.z) return
+              setScalePercent((nextZ / analysis.bounds.z) * 100)
+            }}
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+          />
+          <span className="text-sm text-gray-400">mm</span>
+        </div>
 
                     <div className="mb-5">
                       <label className="text-sm font-medium text-charcoal mb-2 block">Material</label>
