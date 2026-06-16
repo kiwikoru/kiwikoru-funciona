@@ -8,7 +8,7 @@ import Services from './pages/Services'
 import Materials from './pages/Materials'
 import Quote from './pages/Quote'
 import Contact from './pages/Contact'
-
+import Cart from './pages/Cart'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -33,6 +33,7 @@ export default function App() {
           <Route path="/materials" element={<Materials />} />
           <Route path="/quote" element={<Quote />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/cart" element={<Cart />} />
         </Routes>
       </main>
 

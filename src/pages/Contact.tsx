@@ -42,10 +42,6 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / 1024).toFixed(0)} KB`
 }
 
-function getFilesTotalSize(files: File[]): number {
-  return files.reduce((sum, file) => sum + file.size, 0)
-}
-
 function buildQuoteMessage(config: NonNullable<ReturnType<typeof useQuote>['config']>): string {
   const largeFileWarning = (config as { largeFileWarning?: string }).largeFileWarning
 
@@ -208,13 +204,11 @@ const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
 
     for (const file of selectedFiles) {
       if (nextFiles.length >= MAX_ATTACHMENT_FILES) {
-        skippedFiles.push(`${file.name} (too many files)`)
+        skippedFiles.push(`${file.name} (maximum ${MAX_ATTACHMENT_FILES} files)`)
         continue
       }
 
-      const nextTotal = getFilesTotalSize(nextFiles) + file.size
-
-      if (nextTotal > MAX_ATTACHMENT_BYTES) {
+      if (file.size > MAX_ATTACHMENT_BYTES) {
         skippedFiles.push(`${file.name} (${formatFileSize(file.size)})`)
         continue
       }
@@ -224,7 +218,7 @@ const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
 
     if (skippedFiles.length > 0) {
       setAttachmentWarning(
-        `Attachments must be under ${MAX_ATTACHMENT_MB} MB total. These files were not attached: ${skippedFiles.join(', ')}. Please email larger files or a download link to ${CONTACT_EMAIL}.`
+        `Attachments must be under ${MAX_ATTACHMENT_MB} MB each, with a maximum of ${MAX_ATTACHMENT_FILES} files. These files were not attached: ${skippedFiles.join(', ')}. Please email larger files or a download link to ${CONTACT_EMAIL}.`
       )
     } else {
       setAttachmentWarning('')
@@ -239,15 +233,8 @@ const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
 }
 
 const removeFile = (index: number) => {
-  setFiles(prev => {
-    const nextFiles = prev.filter((_, i) => i !== index)
-
-    if (getFilesTotalSize(nextFiles) <= MAX_ATTACHMENT_BYTES) {
-      setAttachmentWarning('')
-    }
-
-    return nextFiles
-  })
+  setFiles(prev => prev.filter((_, i) => i !== index))
+  setAttachmentWarning('')
 }
 
 const handleSubmit = async (e: FormEvent) => {
@@ -257,12 +244,11 @@ const handleSubmit = async (e: FormEvent) => {
   setEmailNote('')
 
   try {
-    const totalAttachmentSize = getFilesTotalSize(files)
-    const filesToSend = totalAttachmentSize <= MAX_ATTACHMENT_BYTES ? files : []
+    const filesToSend = files.filter((file) => file.size <= MAX_ATTACHMENT_BYTES)
 
-    if (files.length > 0 && filesToSend.length === 0) {
+    if (files.length > filesToSend.length) {
       setAttachmentWarning(
-        `Attachments must be under ${MAX_ATTACHMENT_MB} MB total. Your selected files total ${formatFileSize(totalAttachmentSize)}. Please email larger files or a download link to ${CONTACT_EMAIL}.`
+        `Some files were larger than ${MAX_ATTACHMENT_MB} MB and were not attached. Please email larger files or a download link to ${CONTACT_EMAIL}.`
       )
     }
 
@@ -481,7 +467,7 @@ return (
               <div>
                 <label className={labelClass}>Attachments</label>
                 <p className="text-xs text-gray-500 mb-2">
-                  Attachments must be under {MAX_ATTACHMENT_MB} MB total. For larger files or multiple large files, please email them or send a download link to{' '}
+                  Max {MAX_ATTACHMENT_FILES} files, {MAX_ATTACHMENT_MB} MB each. For larger files, please email them or send a download link to{' '}
                   <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold text-forest underline">
                     {CONTACT_EMAIL}
                   </a>
@@ -489,11 +475,11 @@ return (
                 </p>
 
                 {attachmentWarning && (
-                  <div className="mb-3 flex items-start gap-2 rounded-lg border border-gold/30 bg-gold/10 p-3 text-sm text-gray-700">
-                    <AlertCircle size={16} className="text-gold shrink-0 mt-0.5" />
+                  <div className="mb-3 flex items-start gap-2 rounded-xl bg-gold text-forest-dark px-4 py-3 text-sm font-medium shadow-sm">
+                    <AlertCircle size={18} className="shrink-0 mt-0.5" />
                     <p>
                       {attachmentWarning}{' '}
-                      <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold text-forest underline">
+                      <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold underline">
                         {CONTACT_EMAIL}
                       </a>
                     </p>
@@ -533,7 +519,7 @@ return (
                     onClick={() => fileInputRef.current?.click()}
                     className="w-full py-2.5 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
                   >
-                    <Upload size={16} /> Attach files under 3 MB total
+                    <Upload size={16} /> Attach files under 3 MB each
                   </button>
 
                   <input
@@ -545,7 +531,7 @@ return (
                     onChange={handleFileSelect}
                   />
 
-                  <p className="text-xs text-gray-400 mt-2">Max {MAX_ATTACHMENT_FILES} files, {MAX_ATTACHMENT_MB} MB total. Larger files should be emailed to {CONTACT_EMAIL}.</p>
+                  <p className="text-xs text-gray-400 mt-2">Max {MAX_ATTACHMENT_FILES} files, {MAX_ATTACHMENT_MB} MB each. Larger files should be emailed to {CONTACT_EMAIL}.</p>
                 </div>
               </div>
 
