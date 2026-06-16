@@ -4,7 +4,7 @@ import ScrollReveal from '../components/ScrollReveal'
 import { Link } from 'react-router-dom'
 import {
 Mail, Phone, MapPin, Send, CheckCircle, Upload, X,
-ArrowRight, Clock, MessageSquare, Loader2
+ArrowRight, Clock, MessageSquare, Loader2, AlertCircle
 } from 'lucide-react'
 import { useQuote } from '../contexts/QuoteContext'
 import { trpc } from '@/providers/trpc'
@@ -29,24 +29,58 @@ const subjects = [
 'Other',
 ]
 
-function buildQuoteMessage(config: NonNullable<ReturnType<typeof useQuote>['config']>): string {
-const lines = [
-`=== Quote Request ===`,
-``,     `File: ${config.fileName}`,     `Volume: ${config.volume.toFixed(1)} cm³`,     `Material: ${config.material}`,     `Colour: ${config.color.charAt(0).toUpperCase() + config.color.slice(1)}`,     `Quantity: ${config.quantity}`,     `Price per unit: $${config.pricePerUnit.toFixed(2)} NZD`,     `Total estimate: $${config.total.toFixed(2)} NZD`,
-    ``,
-`--- Print Settings ---`,
-`Infill: ${config.infill}%`,
-`Walls: ${config.walls}`,
-`Top layers: ${config.topLayers}`,
-`Bottom layers: ${config.bottomLayers}`,
-`Layer height: ${config.layerHeight}mm`,
-`Supports: ${config.support}`,
-`Finish: ${config.finish}`,
-``,     `=== Additional Notes ===`,
-    ``,
-]
+const CONTACT_EMAIL = 'kiwikoru3d@gmail.com'
+const MAX_ATTACHMENT_MB = 3
+const MAX_ATTACHMENT_BYTES = MAX_ATTACHMENT_MB * 1024 * 1024
+const MAX_ATTACHMENT_FILES = 5
 
-return lines.join('\n')
+function formatFileSize(bytes: number): string {
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / 1024 / 1024).toFixed(2)} MB`
+  }
+
+  return `${(bytes / 1024).toFixed(0)} KB`
+}
+
+function getFilesTotalSize(files: File[]): number {
+  return files.reduce((sum, file) => sum + file.size, 0)
+}
+
+function buildQuoteMessage(config: NonNullable<ReturnType<typeof useQuote>['config']>): string {
+  const largeFileWarning = (config as { largeFileWarning?: string }).largeFileWarning
+
+  const lines = [
+    `=== Quote Request ===`,
+    ``,
+    `File: ${config.fileName}`,
+    `Volume: ${config.volume.toFixed(1)} cm³`,
+    `Material: ${config.material}`,
+    `Colour: ${config.color.charAt(0).toUpperCase() + config.color.slice(1)}`,
+    `Quantity: ${config.quantity}`,
+    `Price per unit: $${config.pricePerUnit.toFixed(2)} NZD`,
+    `Total estimate: $${config.total.toFixed(2)} NZD`,
+    ...(largeFileWarning
+      ? [
+          ``,
+          `--- File Attachment Note ---`,
+          largeFileWarning,
+        ]
+      : []),
+    ``,
+    `--- Print Settings ---`,
+    `Infill: ${config.infill}%`,
+    `Walls: ${config.walls}`,
+    `Top layers: ${config.topLayers}`,
+    `Bottom layers: ${config.bottomLayers}`,
+    `Layer height: ${config.layerHeight}mm`,
+    `Supports: ${config.support}`,
+    `Finish: ${config.finish}`,
+    ``,
+    `=== Additional Notes ===`,
+    ``,
+  ]
+
+  return lines.join('\n')
 }
 
 function fileToBase64(file: File): Promise<string> {
@@ -84,6 +118,7 @@ const [submitting, setSubmitting] = useState(false)
 const [error, setError] = useState('')
 const [files, setFiles] = useState<File[]>([])
 const [emailNote, setEmailNote] = useState('')
+const [attachmentWarning, setAttachmentWarning] = useState('')
 const fileInputRef = useRef<HTMLInputElement>(null)
 
 const [form, setForm] = useState({
@@ -137,7 +172,17 @@ useEffect(() => {
     }))
 
     if (nextFile) {
-      setFiles([nextFile])
+      if (nextFile.size <= MAX_ATTACHMENT_BYTES) {
+        setFiles([nextFile])
+        setAttachmentWarning('')
+      } else {
+        setFiles([])
+        setAttachmentWarning(
+          `This file is ${formatFileSize(nextFile.size)}, which is larger than the ${MAX_ATTACHMENT_MB} MB attachment limit. Please email the file or a download link to ${CONTACT_EMAIL}.`
+        )
+      }
+    } else if ((nextConfig as { largeFileWarning?: string }).largeFileWarning) {
+      setAttachmentWarning((nextConfig as { largeFileWarning?: string }).largeFileWarning || '')
     }
 
     setConfig(null)
@@ -153,25 +198,56 @@ useEffect(() => {
 }, [config, quoteFile, setConfig, setQuoteFile])
 
 const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-const newFiles = Array.from(e.target.files || [])
+  const selectedFiles = Array.from(e.target.files || [])
 
+  if (selectedFiles.length === 0) return
 
-const validFiles = newFiles.filter(file => {
-  const maxSize = 10 * 1024 * 1024
-  return file.size <= maxSize
-})
+  setFiles((prev) => {
+    const nextFiles = [...prev]
+    const skippedFiles: string[] = []
 
-setFiles(prev => [...prev, ...validFiles].slice(0, 5))
+    for (const file of selectedFiles) {
+      if (nextFiles.length >= MAX_ATTACHMENT_FILES) {
+        skippedFiles.push(`${file.name} (too many files)`)
+        continue
+      }
 
-if (fileInputRef.current) {
-  fileInputRef.current.value = ''
-}
+      const nextTotal = getFilesTotalSize(nextFiles) + file.size
 
+      if (nextTotal > MAX_ATTACHMENT_BYTES) {
+        skippedFiles.push(`${file.name} (${formatFileSize(file.size)})`)
+        continue
+      }
 
+      nextFiles.push(file)
+    }
+
+    if (skippedFiles.length > 0) {
+      setAttachmentWarning(
+        `Attachments must be under ${MAX_ATTACHMENT_MB} MB total. These files were not attached: ${skippedFiles.join(', ')}. Please email larger files or a download link to ${CONTACT_EMAIL}.`
+      )
+    } else {
+      setAttachmentWarning('')
+    }
+
+    return nextFiles
+  })
+
+  if (fileInputRef.current) {
+    fileInputRef.current.value = ''
+  }
 }
 
 const removeFile = (index: number) => {
-setFiles(prev => prev.filter((_, i) => i !== index))
+  setFiles(prev => {
+    const nextFiles = prev.filter((_, i) => i !== index)
+
+    if (getFilesTotalSize(nextFiles) <= MAX_ATTACHMENT_BYTES) {
+      setAttachmentWarning('')
+    }
+
+    return nextFiles
+  })
 }
 
 const handleSubmit = async (e: FormEvent) => {
@@ -181,8 +257,17 @@ const handleSubmit = async (e: FormEvent) => {
   setEmailNote('')
 
   try {
+    const totalAttachmentSize = getFilesTotalSize(files)
+    const filesToSend = totalAttachmentSize <= MAX_ATTACHMENT_BYTES ? files : []
+
+    if (files.length > 0 && filesToSend.length === 0) {
+      setAttachmentWarning(
+        `Attachments must be under ${MAX_ATTACHMENT_MB} MB total. Your selected files total ${formatFileSize(totalAttachmentSize)}. Please email larger files or a download link to ${CONTACT_EMAIL}.`
+      )
+    }
+
     const emailFiles = await Promise.all(
-      files.map(async (file) => ({
+      filesToSend.map(async (file) => ({
         name: file.name,
         type: file.type || 'application/octet-stream',
         content: await fileToBase64(file),
@@ -292,6 +377,7 @@ return (
                       message: '',
                     })
                     setFiles([])
+                    setAttachmentWarning('')
                   }}
                   className="inline-flex items-center gap-2 px-6 py-3 border border-gray-200 text-charcoal font-medium rounded-lg hover:bg-gray-50 transition-all"
                 >
@@ -394,6 +480,26 @@ return (
 
               <div>
                 <label className={labelClass}>Attachments</label>
+                <p className="text-xs text-gray-500 mb-2">
+                  Attachments must be under {MAX_ATTACHMENT_MB} MB total. For larger files or multiple large files, please email them or send a download link to{' '}
+                  <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold text-forest underline">
+                    {CONTACT_EMAIL}
+                  </a>
+                  .
+                </p>
+
+                {attachmentWarning && (
+                  <div className="mb-3 flex items-start gap-2 rounded-lg border border-gold/30 bg-gold/10 p-3 text-sm text-gray-700">
+                    <AlertCircle size={16} className="text-gold shrink-0 mt-0.5" />
+                    <p>
+                      {attachmentWarning}{' '}
+                      <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold text-forest underline">
+                        {CONTACT_EMAIL}
+                      </a>
+                    </p>
+                  </div>
+                )}
+
                 <div className="border border-gray-200 border-dashed rounded-lg p-4">
                   {files.length > 0 && (
                     <div className="space-y-2 mb-3">
@@ -406,7 +512,7 @@ return (
                             <Upload size={14} className="text-forest shrink-0" />
                             <span className="truncate text-gray-600">{file.name}</span>
                             <span className="text-gray-400 text-xs shrink-0">
-                              ({(file.size / 1024).toFixed(0)} KB)
+                              ({formatFileSize(file.size)})
                             </span>
                           </div>
 
@@ -427,7 +533,7 @@ return (
                     onClick={() => fileInputRef.current?.click()}
                     className="w-full py-2.5 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
                   >
-                    <Upload size={16} /> Attach files (STL, images, PDFs)
+                    <Upload size={16} /> Attach files under 3 MB total
                   </button>
 
                   <input
@@ -439,7 +545,7 @@ return (
                     onChange={handleFileSelect}
                   />
 
-                  <p className="text-xs text-gray-400 mt-2">Max 5 files, 10MB each</p>
+                  <p className="text-xs text-gray-400 mt-2">Max {MAX_ATTACHMENT_FILES} files, {MAX_ATTACHMENT_MB} MB total. Larger files should be emailed to {CONTACT_EMAIL}.</p>
                 </div>
               </div>
 
