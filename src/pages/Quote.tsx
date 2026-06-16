@@ -11,6 +11,10 @@ import {
 import { useQuote, type PrintColor } from '../contexts/QuoteContext'
 import ModelViewer, { type ModelAnalysis } from '../components/ModelViewer'
 
+const MAX_ATTACH_MB = 3
+const MAX_ATTACH_BYTES = MAX_ATTACH_MB * 1024 * 1024
+const CONTACT_EMAIL = 'kiwikoru3d@gmail.com'
+
 const materials = [
   { name: 'PLA', factor: 1.0, desc: 'Best for prototypes & models', color: '#2d8a4e' },
   { name: 'PETG', factor: 1.2, desc: 'Strong, durable all-rounder', color: '#2563eb' },
@@ -150,6 +154,7 @@ export default function Quote() {
   const [support, setSupport] = useState('standard')
   const [finish, setFinish] = useState('standard')
   const [dragOver, setDragOver] = useState(false)
+  const [fileWarning, setFileWarning] = useState('')
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -240,6 +245,16 @@ export default function Quote() {
       setLocalFile(f)
       setCtxFile(f)
       setAnalysis(null)
+      setScalePercent(100)
+      setScaleInput('100')
+
+      if (f.size > MAX_ATTACH_BYTES) {
+        setFileWarning(
+          `This file is larger than ${MAX_ATTACH_MB} MB. It can be used for the estimate, but it will not attach automatically. Please email the file or a download link to ${CONTACT_EMAIL}.`
+        )
+      } else {
+        setFileWarning('')
+      }
     }
   }, [setCtxFile])
 
@@ -250,6 +265,16 @@ export default function Quote() {
       setLocalFile(f)
       setCtxFile(f)
       setAnalysis(null)
+      setScalePercent(100)
+      setScaleInput('100')
+
+      if (f.size > MAX_ATTACH_BYTES) {
+        setFileWarning(
+          `This file is larger than ${MAX_ATTACH_MB} MB. It can be used for the estimate, but it will not attach automatically. Please email the file or a download link to ${CONTACT_EMAIL}.`
+        )
+      } else {
+        setFileWarning('')
+      }
     }
   }, [setCtxFile])
 
@@ -257,6 +282,9 @@ export default function Quote() {
     setLocalFile(null)
     setCtxFile(null)
     setAnalysis(null)
+    setFileWarning('')
+    setScalePercent(100)
+    setScaleInput('100')
   }, [setCtxFile])
 
 const handleAddToCart = useCallback(() => {
@@ -329,35 +357,61 @@ const handleProceed = useCallback(async () => {
     setConfig(quoteConfig)
 
     try {
-      const dataUrl = await fileToDataUrl(file)
+      if (file.size <= MAX_ATTACH_BYTES) {
+        const dataUrl = await fileToDataUrl(file)
 
-      sessionStorage.setItem(
-        'kiwikoru_quote_request',
-        JSON.stringify({
-          config: {
-            fileName: file.name,
-            volume: scaledAnalysis.volume,
-            material,
-            quantity,
-            color: printColor,
-            infill,
-            walls,
-            topLayers,
-            bottomLayers,
-            layerHeight,
-            support,
-            finish,
-            pricePerUnit,
-            total,
-          },
-          file: {
-            name: file.name,
-            type: file.type || 'application/octet-stream',
-            lastModified: file.lastModified,
-            dataUrl,
-          },
-        })
-      )
+        sessionStorage.setItem(
+          'kiwikoru_quote_request',
+          JSON.stringify({
+            config: {
+              fileName: file.name,
+              volume: scaledAnalysis.volume,
+              material,
+              quantity,
+              color: printColor,
+              infill,
+              walls,
+              topLayers,
+              bottomLayers,
+              layerHeight,
+              support,
+              finish,
+              pricePerUnit,
+              total,
+            },
+            file: {
+              name: file.name,
+              type: file.type || 'application/octet-stream',
+              lastModified: file.lastModified,
+              dataUrl,
+            },
+          })
+        )
+      } else {
+        sessionStorage.setItem(
+          'kiwikoru_quote_request',
+          JSON.stringify({
+            config: {
+              fileName: file.name,
+              volume: scaledAnalysis.volume,
+              material,
+              quantity,
+              color: printColor,
+              infill,
+              walls,
+              topLayers,
+              bottomLayers,
+              layerHeight,
+              support,
+              finish,
+              pricePerUnit,
+              total,
+              largeFileWarning: `File larger than ${MAX_ATTACH_MB} MB. Customer should email the file or a download link to ${CONTACT_EMAIL}.`,
+            },
+            file: null,
+          })
+        )
+      }
     } catch (err) {
       console.error('[QUOTE] Could not save quote file fallback', err)
     }
@@ -468,6 +522,29 @@ const handleProceed = useCallback(async () => {
                     </div>
 
                     {scaledAnalysis && <AnalysisPanel analysis={scaledAnalysis} />}
+
+                    <div className="mx-5 mt-4 mb-5 flex items-start gap-2 rounded-xl border border-gold/30 bg-gold/10 p-4 text-sm text-gray-700">
+                      <AlertCircle size={18} className="text-gold shrink-0 mt-0.5" />
+                      <p>
+                        Attachments must be under {MAX_ATTACH_MB} MB total. For larger files or multiple large files, please email them or send a download link to{' '}
+                        <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold text-forest underline">
+                          {CONTACT_EMAIL}
+                        </a>
+                        .
+                      </p>
+                    </div>
+
+                    {fileWarning && (
+                      <div className="mx-5 mb-5 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                        <AlertCircle size={18} className="shrink-0 mt-0.5" />
+                        <p>
+                          {fileWarning}{' '}
+                          <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold underline">
+                            {CONTACT_EMAIL}
+                          </a>
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </ScrollReveal>
               )}
