@@ -9,13 +9,10 @@ import {
   Palette,
   Send,
   AlertCircle,
-  Mail,
 } from 'lucide-react'
 import SEO from '../components/SEO'
 import ScrollReveal from '../components/ScrollReveal'
 import { useCart } from '../contexts/CartContext'
-
-const CONTACT_EMAIL = 'kiwikoru3d@gmail.com'
 
 function formatFileSize(bytes: number): string {
   if (!bytes || bytes <= 0) {
@@ -71,10 +68,7 @@ export default function Cart() {
             <ScrollReveal>
               <div className="border border-gray-200 rounded-2xl p-12 text-center bg-cream">
                 <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-5 shadow-sm">
-                  <ShoppingCart
-                    size={30}
-                    className="text-forest"
-                  />
+                  <ShoppingCart size={30} className="text-forest" />
                 </div>
 
                 <h2 className="text-2xl font-bold text-charcoal mb-3">
@@ -107,18 +101,11 @@ export default function Cart() {
 
                       <div>
                         <h2 className="font-semibold text-charcoal mb-1">
-                          Some original files need to be sent again
+                          Some original files need to be selected again
                         </h2>
 
                         <p className="text-sm text-gray-600 leading-relaxed">
-                          Your cart details were restored, but browsers cannot permanently store the original 3D model files. Please attach the files again when submitting your request, or email them or a download link to{' '}
-                          <a
-                            href={`mailto:${CONTACT_EMAIL}`}
-                            className="font-semibold text-forest underline"
-                          >
-                            {CONTACT_EMAIL}
-                          </a>
-                          .
+                          Your cart details were restored, but browsers cannot permanently store the original 3D model files. When you continue, please select those files again in the contact form. Files up to 100 MB each can be uploaded securely.
                         </p>
                       </div>
                     </div>
@@ -174,14 +161,7 @@ export default function Cart() {
                             />
 
                             <p className="text-xs text-gray-600 leading-relaxed">
-                              The quote settings are saved, but the original file is no longer loaded. Please attach it again or send it to{' '}
-                              <a
-                                href={`mailto:${CONTACT_EMAIL}`}
-                                className="font-semibold text-forest underline"
-                              >
-                                {CONTACT_EMAIL}
-                              </a>
-                              .
+                              The quote settings are saved, but the original file is no longer loaded. Please select this file again in the contact form before sending the request.
                             </p>
                           </div>
                         )}
@@ -294,7 +274,7 @@ export default function Cart() {
 
                       {missingFileCount > 0 && (
                         <div className="flex justify-between text-gold">
-                          <span>Files to resend</span>
+                          <span>Files to reselect</span>
                           <span>{missingFileCount}</span>
                         </div>
                       )}
@@ -334,16 +314,6 @@ export default function Cart() {
                         <Send size={16} />
                       </button>
 
-                      {missingFileCount > 0 && (
-                        <a
-                          href={`mailto:${CONTACT_EMAIL}`}
-                          className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 border border-gold/40 text-forest font-medium rounded-lg hover:bg-gold/10 transition-all"
-                        >
-                          <Mail size={16} />
-                          Email model files
-                        </a>
-                      )}
-
                       <button
                         type="button"
                         onClick={clearCart}
@@ -355,7 +325,7 @@ export default function Cart() {
                     </div>
 
                     <p className="mt-5 text-xs text-gray-400 leading-relaxed">
-                      This is an estimate only. Final pricing may vary after printability review.
+                      Up to 5 files can be uploaded, with a maximum of 100 MB per file. Final pricing may vary after printability review.
                     </p>
                   </div>
                 </ScrollReveal>

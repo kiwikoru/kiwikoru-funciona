@@ -11,9 +11,8 @@ import {
 import { useQuote, type PrintColor } from '../contexts/QuoteContext'
 import ModelViewer, { type ModelAnalysis } from '../components/ModelViewer'
 
-const MAX_ATTACH_MB = 3
-const MAX_ATTACH_BYTES = MAX_ATTACH_MB * 1024 * 1024
-const CONTACT_EMAIL = 'kiwikoru3d@gmail.com'
+const MAX_MODEL_MB = 100
+const MAX_MODEL_BYTES = MAX_MODEL_MB * 1024 * 1024
 
 const materials = [
   { name: 'PLA', factor: 1.0, desc: 'Best for prototypes & models', color: '#2d8a4e' },
@@ -71,16 +70,6 @@ function getBulkLabel(qty: number): string {
   return 'No discount'
 }
 
-
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-
-    reader.onload = () => resolve(reader.result as string)
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
-}
 
 function AnalysisPanel({ analysis }: { analysis: ModelAnalysis | null }) {
   if (!analysis) return null
@@ -235,48 +224,53 @@ export default function Quote() {
     }
   }, [ctxFile, localFile])
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
+  const loadModelFile = useCallback((selectedFile: File) => {
+    const lowerName = selectedFile.name.toLowerCase()
+    const supported =
+      lowerName.endsWith('.stl') ||
+      lowerName.endsWith('.obj') ||
+      lowerName.endsWith('.3mf')
+
+    if (!supported) {
+      setFileWarning('Please select an STL, OBJ, or 3MF file.')
+      return
+    }
+
+    if (selectedFile.size > MAX_MODEL_BYTES) {
+      setFileWarning(
+        `This file is larger than ${MAX_MODEL_MB} MB and cannot be uploaded. Please choose a smaller file.`
+      )
+      return
+    }
+
+    setLocalFile(selectedFile)
+    setCtxFile(selectedFile)
+    setAnalysis(null)
+    setScalePercent(100)
+    setScaleInput('100')
+    setFileWarning('')
+  }, [setCtxFile])
+
+  const handleDrop = useCallback((event: React.DragEvent) => {
+    event.preventDefault()
     setDragOver(false)
 
-    const f = e.dataTransfer.files[0]
+    const selectedFile = event.dataTransfer.files[0]
 
-    if (f && (f.name.endsWith('.stl') || f.name.endsWith('.obj') || f.name.endsWith('.3mf'))) {
-      setLocalFile(f)
-      setCtxFile(f)
-      setAnalysis(null)
-      setScalePercent(100)
-      setScaleInput('100')
-
-      if (f.size > MAX_ATTACH_BYTES) {
-        setFileWarning(
-          `This file is larger than ${MAX_ATTACH_MB} MB. It can be used for the estimate, but it will not attach automatically. Please email the file or a download link to ${CONTACT_EMAIL}.`
-        )
-      } else {
-        setFileWarning('')
-      }
+    if (selectedFile) {
+      loadModelFile(selectedFile)
     }
-  }, [setCtxFile])
+  }, [loadModelFile])
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]
+  const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0]
 
-    if (f) {
-      setLocalFile(f)
-      setCtxFile(f)
-      setAnalysis(null)
-      setScalePercent(100)
-      setScaleInput('100')
-
-      if (f.size > MAX_ATTACH_BYTES) {
-        setFileWarning(
-          `This file is larger than ${MAX_ATTACH_MB} MB. It can be used for the estimate, but it will not attach automatically. Please email the file or a download link to ${CONTACT_EMAIL}.`
-        )
-      } else {
-        setFileWarning('')
-      }
+    if (selectedFile) {
+      loadModelFile(selectedFile)
     }
-  }, [setCtxFile])
+
+    event.target.value = ''
+  }, [loadModelFile])
 
   const clearFile = useCallback(() => {
     setLocalFile(null)
@@ -332,98 +326,16 @@ const handleAddToCart = useCallback(() => {
   clearFile,
 ])
 
-const handleProceed = useCallback(async () => {
+const handleProceed = useCallback(() => {
   if (!file || !analysis || !scaledAnalysis) return
 
   const quoteConfig = {
-      file,
-      fileName: file.name,
-      volume: scaledAnalysis.volume,
-      material,
-      quantity,
-      color: printColor,
-      infill,
-      walls,
-      topLayers,
-      bottomLayers,
-      layerHeight,
-      support,
-      finish,
-      pricePerUnit,
-      total,
-    }
-
-    setCtxFile(file)
-    setConfig(quoteConfig)
-
-    try {
-      if (file.size <= MAX_ATTACH_BYTES) {
-        const dataUrl = await fileToDataUrl(file)
-
-        sessionStorage.setItem(
-          'kiwikoru_quote_request',
-          JSON.stringify({
-            config: {
-              fileName: file.name,
-              volume: scaledAnalysis.volume,
-              material,
-              quantity,
-              color: printColor,
-              infill,
-              walls,
-              topLayers,
-              bottomLayers,
-              layerHeight,
-              support,
-              finish,
-              pricePerUnit,
-              total,
-            },
-            file: {
-              name: file.name,
-              type: file.type || 'application/octet-stream',
-              lastModified: file.lastModified,
-              dataUrl,
-            },
-          })
-        )
-      } else {
-        sessionStorage.setItem(
-          'kiwikoru_quote_request',
-          JSON.stringify({
-            config: {
-              fileName: file.name,
-              volume: scaledAnalysis.volume,
-              material,
-              quantity,
-              color: printColor,
-              infill,
-              walls,
-              topLayers,
-              bottomLayers,
-              layerHeight,
-              support,
-              finish,
-              pricePerUnit,
-              total,
-              largeFileWarning: `File larger than ${MAX_ATTACH_MB} MB. Customer should email the file or a download link to ${CONTACT_EMAIL}.`,
-            },
-            file: null,
-          })
-        )
-      }
-    } catch (err) {
-      console.error('[QUOTE] Could not save quote file fallback', err)
-    }
-
-    navigate('/contact')
-  }, [
     file,
-    analysis,
-    scaledAnalysis,
+    fileName: file.name,
+    volume: scaledAnalysis.volume,
     material,
     quantity,
-    printColor,
+    color: printColor,
     infill,
     walls,
     topLayers,
@@ -433,10 +345,59 @@ const handleProceed = useCallback(async () => {
     finish,
     pricePerUnit,
     total,
-    setCtxFile,
-    setConfig,
-     navigate,
-  ])
+  }
+
+  setCtxFile(file)
+  setConfig(quoteConfig)
+
+  try {
+    sessionStorage.setItem(
+      'kiwikoru_quote_request',
+      JSON.stringify({
+        config: {
+          fileName: file.name,
+          volume: scaledAnalysis.volume,
+          material,
+          quantity,
+          color: printColor,
+          infill,
+          walls,
+          topLayers,
+          bottomLayers,
+          layerHeight,
+          support,
+          finish,
+          pricePerUnit,
+          total,
+        },
+        file: null,
+      })
+    )
+  } catch (err) {
+    console.error('[QUOTE] Could not save quote fallback', err)
+  }
+
+  navigate('/contact')
+}, [
+  file,
+  analysis,
+  scaledAnalysis,
+  material,
+  quantity,
+  printColor,
+  infill,
+  walls,
+  topLayers,
+  bottomLayers,
+  layerHeight,
+  support,
+  finish,
+  pricePerUnit,
+  total,
+  setCtxFile,
+  setConfig,
+  navigate,
+])
 
   return (
     <>
@@ -480,7 +441,7 @@ const handleProceed = useCallback(async () => {
                     <Upload size={48} className="mx-auto mb-4 text-forest/40" />
                     <p className="text-lg font-medium text-charcoal mb-1">Drop your 3D model here</p>
                     <p className="text-sm text-gray-500 mb-4">or click to browse</p>
-                    <p className="text-xs text-gray-400">Supports STL, OBJ, and 3MF files</p>
+                    <p className="text-xs text-gray-400">Supports STL, OBJ, and 3MF files — up to {MAX_MODEL_MB} MB</p>
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -489,6 +450,13 @@ const handleProceed = useCallback(async () => {
                       onChange={handleFileSelect}
                     />
                   </div>
+
+                  {fileWarning && (
+                    <div className="mt-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                      <AlertCircle size={18} className="shrink-0 mt-0.5" />
+                      <p>{fileWarning}</p>
+                    </div>
+                  )}
                 </ScrollReveal>
               )}
 
@@ -526,23 +494,14 @@ const handleProceed = useCallback(async () => {
                     <div className="mx-5 mt-4 mb-5 flex items-start gap-2 rounded-xl border border-gold/30 bg-gold/10 p-4 text-sm text-gray-700">
                       <AlertCircle size={18} className="text-gold shrink-0 mt-0.5" />
                       <p>
-                        Attachments must be under {MAX_ATTACH_MB} MB total. For larger files or multiple large files, please email them or send a download link to{' '}
-                        <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold text-forest underline">
-                          {CONTACT_EMAIL}
-                        </a>
-                        .
+                        Model files can be up to {MAX_MODEL_MB} MB. They are uploaded securely when you submit the quote request.
                       </p>
                     </div>
 
                     {fileWarning && (
                       <div className="mx-5 mb-5 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
                         <AlertCircle size={18} className="shrink-0 mt-0.5" />
-                        <p>
-                          {fileWarning}{' '}
-                          <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold underline">
-                            {CONTACT_EMAIL}
-                          </a>
-                        </p>
+                        <p>{fileWarning}</p>
                       </div>
                     )}
                   </div>
