@@ -47,7 +47,9 @@ type UploadedBlobFile = {
   originalName: string
   size: number
   pathname: string
-  url: string
+  privateUrl: string
+  downloadUrl: string
+  downloadUrlValidUntil: number
   contentType: string
 }
 
@@ -67,6 +69,36 @@ function sanitiseFileName(fileName: string): string {
     .trim()
     .replace(/[^a-zA-Z0-9._-]+/g, '-')
     .replace(/-+/g, '-')
+}
+
+async function createSignedDownloadUrl(pathname: string): Promise<{
+  downloadUrl: string
+  validUntil: number
+}> {
+  const response = await fetch('/api/blob/download-url', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ pathname }),
+  })
+
+  const result = await response.json() as {
+    downloadUrl?: string
+    validUntil?: number
+    error?: string
+  }
+
+  if (!response.ok || !result.downloadUrl || !result.validUntil) {
+    throw new Error(
+      result.error || 'The secure download link could not be created.'
+    )
+  }
+
+  return {
+    downloadUrl: result.downloadUrl,
+    validUntil: result.validUntil,
+  }
 }
 
 function appendUploadedFilesToMessage(
@@ -89,14 +121,15 @@ function appendUploadedFilesToMessage(
       `${index + 1}. ${file.originalName}`,
       `Size: ${formatFileSize(file.size)}`,
       `Storage path: ${file.pathname}`,
-      `Private Blob URL: ${file.url}`,
+      `Download link (valid for 7 days): ${file.downloadUrl}`,
+      `Private Blob URL: ${file.privateUrl}`,
       ''
     )
   })
 
   lines.push(
     'These files are stored in the private KiwiKoru Blob store.',
-    'Open them from the Vercel Blob dashboard or with an authorised server request.',
+    'The download links above are temporary and expire after 7 days.',
     ''
   )
 
@@ -407,11 +440,19 @@ export default function Contact() {
           },
         })
 
+        setUploadStatus(
+          `Creating secure download link for file ${index + 1} of ${filesToUpload.length}: ${originalFile.name}`
+        )
+
+        const signedDownload = await createSignedDownloadUrl(blob.pathname)
+
         uploadedFiles.push({
           originalName: originalFile.name,
           size: originalFile.size,
           pathname: blob.pathname,
-          url: blob.url,
+          privateUrl: blob.url,
+          downloadUrl: signedDownload.downloadUrl,
+          downloadUrlValidUntil: signedDownload.validUntil,
           contentType: blob.contentType,
         })
       }
