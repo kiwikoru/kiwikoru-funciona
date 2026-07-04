@@ -21,6 +21,13 @@ export type CartItem = {
   fileSize: number
   fileName: string
 
+  /*
+   * Miniatura PNG/JPEG del modelo.
+   * Se guarda como data URL para poder persistirla en localStorage
+   * y mostrarla nuevamente en el carrito.
+   */
+  thumbnailDataUrl?: string
+
   volume: number
   dimensions?: {
     x: number
@@ -82,13 +89,18 @@ function loadStoredCart(): CartItem[] {
 
       /*
        * El File original no puede recuperarse desde localStorage.
-       * El resto de la información del modelo sí permanece guardada.
+       * El resto de la información del modelo, incluida la miniatura,
+       * sí permanece guardada.
        */
       file: undefined,
       fileSize:
         typeof item.fileSize === 'number'
           ? item.fileSize
           : 0,
+      thumbnailDataUrl:
+        typeof item.thumbnailDataUrl === 'string'
+          ? item.thumbnailDataUrl
+          : undefined,
     }))
   } catch (error) {
     console.error('[CART] Could not load saved cart', error)
@@ -129,6 +141,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       ...item,
       id,
       fileSize: item.fileSize ?? item.file?.size ?? 0,
+      thumbnailDataUrl:
+        typeof item.thumbnailDataUrl === 'string'
+          ? item.thumbnailDataUrl
+          : undefined,
     }
 
     setItems((current) => [...current, newItem])

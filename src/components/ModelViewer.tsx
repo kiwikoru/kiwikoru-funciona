@@ -1,4 +1,11 @@
-import { useRef, useEffect, useState, useCallback } from 'react'
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js'
@@ -38,7 +45,12 @@ interface Props {
   onAnalysis: (a: ModelAnalysis) => void
 }
 
-export default function ModelViewer({ file, color, material, onAnalysis }: Props) {
+export interface ModelViewerHandle {
+  captureThumbnail: () => string | null
+}
+
+const ModelViewer = forwardRef<ModelViewerHandle, Props>(
+  function ModelViewer({ file, color, material, onAnalysis }, ref) {
   const containerRef = useRef<HTMLDivElement>(null)
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null)
@@ -47,6 +59,27 @@ export default function ModelViewer({ file, color, material, onAnalysis }: Props
   const frameRef = useRef<number>(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      captureThumbnail: () => {
+        const renderer = rendererRef.current
+
+        if (!renderer || !meshRef.current || loading || error) {
+          return null
+        }
+
+        try {
+          return renderer.domElement.toDataURL('image/jpeg', 0.82)
+        } catch (captureError) {
+          console.error('[MODEL VIEWER] Could not capture thumbnail', captureError)
+          return null
+        }
+      },
+    }),
+    [loading, error]
+  )
 
   useEffect(() => {
     const container = containerRef.current
@@ -64,7 +97,11 @@ export default function ModelViewer({ file, color, material, onAnalysis }: Props
     camera.position.set(40, 30, 50)
     cameraRef.current = camera
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: false,
+      preserveDrawingBuffer: true,
+    })
     renderer.setSize(w, h)
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     renderer.shadowMap.enabled = true
@@ -247,8 +284,28 @@ scene.add(axesHelper)
       cancelAnimationFrame(frameRef.current)
       ro.disconnect()
       controls.dispose()
+
+      if (meshRef.current) {
+        meshRef.current.geometry.dispose()
+
+        const meshMaterial = meshRef.current.material
+        if (Array.isArray(meshMaterial)) {
+          meshMaterial.forEach((materialItem) => materialItem.dispose())
+        } else {
+          meshMaterial.dispose()
+        }
+
+        meshRef.current = null
+      }
+
       renderer.dispose()
-      if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement)
+      rendererRef.current = null
+      cameraRef.current = null
+      controlsRef.current = null
+
+      if (container.contains(renderer.domElement)) {
+        container.removeChild(renderer.domElement)
+      }
     }
   }, [file, color, material, onAnalysis])
 
@@ -331,7 +388,9 @@ scene.add(axesHelper)
       )}
     </div>
   )
-}
+})
+
+export default ModelViewer
 
 function computeVolume(geometry: THREE.BufferGeometry): number {
   const position = geometry.attributes.position
