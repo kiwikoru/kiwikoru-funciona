@@ -18,21 +18,28 @@ export default function Navbar() {
   const { itemCount } = useCart()
 
   useEffect(() => {
-    const h = () => setScrolled(window.scrollY > 50)
-    window.addEventListener('scroll', h, { passive: true })
-    return () => window.removeEventListener('scroll', h)
+    const handleScroll = () => setScrolled(window.scrollY > 50)
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+    }
   }, [])
 
   useEffect(() => {
     setOpen(false)
   }, [loc.pathname])
 
-  const handleLogoClick = useCallback((e: React.MouseEvent) => {
-    if (loc.pathname === '/') {
-      e.preventDefault()
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    }
-  }, [loc.pathname])
+  const handleLogoClick = useCallback(
+    (event: React.MouseEvent) => {
+      if (loc.pathname === '/') {
+        event.preventDefault()
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      }
+    },
+    [loc.pathname]
+  )
 
   return (
     <>
@@ -43,32 +50,48 @@ export default function Navbar() {
         Skip to content
       </a>
 
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-forest/95 backdrop-blur-md shadow-lg' : 'bg-transparent'}`}>
-        <div className="max-w-7xl mx-auto px-6 h-[72px] flex items-center justify-between">
+      <nav
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+          scrolled
+            ? 'bg-forest/95 backdrop-blur-md shadow-lg'
+            : 'bg-transparent'
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-[72px] flex items-center justify-between">
           <Link
             to="/"
             onClick={handleLogoClick}
-            className="flex items-center gap-3 focus-gold"
+            className="flex items-center gap-2 min-w-0 focus-gold"
             aria-label="KiwiKoru 3D — Home"
           >
-            <img src="/images/logo.png" alt="" className="w-10 h-10 rounded-xl shadow-lg shadow-black/20" />
-            <span className="text-white font-semibold text-base tracking-wide hidden sm:block">KiwiKoru</span>
+            <img
+              src="/images/logo.png"
+              alt=""
+              className="w-10 h-10 rounded-xl shadow-lg shadow-black/20 shrink-0"
+            />
+
+            <span className="text-white font-semibold text-sm sm:text-base tracking-wide truncate">
+              KiwiKoru
+            </span>
           </Link>
 
           <div className="hidden md:flex items-center gap-8">
-            {links.map((l) => {
-              const isActive = loc.pathname === l.path
+            {links.map((link) => {
+              const isActive = loc.pathname === link.path
 
               return (
                 <Link
-                  key={l.path}
-                  to={l.path}
+                  key={link.path}
+                  to={link.path}
                   aria-current={isActive ? 'page' : undefined}
                   className={`text-sm font-medium tracking-wide transition-colors relative ${
-                    isActive ? 'text-gold' : 'text-white/70 hover:text-white'
+                    isActive
+                      ? 'text-gold'
+                      : 'text-white/70 hover:text-white'
                   }`}
                 >
-                  {l.label}
+                  {link.label}
+
                   {isActive && (
                     <span
                       className="absolute -bottom-1 left-0 right-0 h-0.5 bg-gold rounded-full"
@@ -98,7 +121,7 @@ export default function Navbar() {
             </Link>
           </div>
 
-          <div className="md:hidden flex items-center gap-2">
+          <div className="md:hidden flex items-center gap-1">
             <Link
               to="/cart"
               aria-label="View cart"
@@ -114,6 +137,7 @@ export default function Navbar() {
             </Link>
 
             <button
+              type="button"
               className="text-white p-2"
               onClick={() => setOpen(true)}
               aria-label="Open menu"
@@ -128,6 +152,7 @@ export default function Navbar() {
       {open && (
         <div className="fixed inset-0 z-[60] bg-forest/98 backdrop-blur-xl flex flex-col items-center justify-center gap-8">
           <button
+            type="button"
             className="absolute top-5 right-6 text-white p-2"
             onClick={() => setOpen(false)}
             aria-label="Close menu"
@@ -135,17 +160,21 @@ export default function Navbar() {
             <X size={28} />
           </button>
 
-          {links.map((l) => {
-            const isActive = loc.pathname === l.path
+          {links.map((link) => {
+            const isActive = loc.pathname === link.path
 
             return (
               <Link
-                key={l.path}
-                to={l.path}
+                key={link.path}
+                to={link.path}
                 aria-current={isActive ? 'page' : undefined}
-                className={`text-2xl font-semibold transition-colors ${isActive ? 'text-gold' : 'text-white hover:text-gold'}`}
+                className={`text-2xl font-semibold transition-colors ${
+                  isActive
+                    ? 'text-gold'
+                    : 'text-white hover:text-gold'
+                }`}
               >
-                {l.label}
+                {link.label}
               </Link>
             )
           })}
@@ -154,10 +183,13 @@ export default function Navbar() {
             to="/cart"
             aria-current={loc.pathname === '/cart' ? 'page' : undefined}
             className={`relative inline-flex items-center gap-3 text-2xl font-semibold transition-colors ${
-              loc.pathname === '/cart' ? 'text-gold' : 'text-white hover:text-gold'
+              loc.pathname === '/cart'
+                ? 'text-gold'
+                : 'text-white hover:text-gold'
             }`}
           >
             <ShoppingCart size={26} />
+
             Cart
 
             {itemCount > 0 && (
