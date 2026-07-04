@@ -9,9 +9,11 @@ import ScrollReveal from '../components/ScrollReveal'
 import { useQuote } from '../contexts/QuoteContext'
 import { useCart, type CartItem } from '../contexts/CartContext'
 import { trpc } from '@/providers/trpc'
+import type { PutBlobResult } from '@vercel/blob'
+import { upload } from '@vercel/blob/client'
 
 const CONTACT_EMAIL = 'kiwikoru3d@gmail.com'
-const MAX_ATTACHMENT_MB = 3
+const MAX_ATTACHMENT_MB = 100
 const MAX_ATTACHMENT_BYTES = MAX_ATTACHMENT_MB * 1024 * 1024
 const MAX_ATTACHMENT_FILES = 5
 
@@ -41,13 +43,64 @@ function formatFileSize(bytes: number): string {
     : `${(bytes / 1024).toFixed(0)} KB`
 }
 
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve((reader.result as string).split(',')[1])
-    reader.onerror = reject
-    reader.readAsDataURL(file)
+type UploadedBlobFile = {
+  originalName: string
+  size: number
+  pathname: string
+  url: string
+  contentType: string
+}
+
+function normaliseUploadFile(file: File): File {
+  if (file.type) {
+    return file
+  }
+
+  return new File([file], file.name, {
+    type: 'application/octet-stream',
+    lastModified: file.lastModified,
   })
+}
+
+function sanitiseFileName(fileName: string): string {
+  return fileName
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/-+/g, '-')
+}
+
+function appendUploadedFilesToMessage(
+  message: string,
+  uploadedFiles: UploadedBlobFile[]
+): string {
+  if (uploadedFiles.length === 0) {
+    return message
+  }
+
+  const lines = [
+    message.trimEnd(),
+    '',
+    '=== Securely Uploaded Files ===',
+    '',
+  ]
+
+  uploadedFiles.forEach((file, index) => {
+    lines.push(
+      `${index + 1}. ${file.originalName}`,
+      `Size: ${formatFileSize(file.size)}`,
+      `Storage path: ${file.pathname}`,
+      `Private Blob URL: ${file.url}`,
+      ''
+    )
+  })
+
+  lines.push(
+    'These files are stored in the private KiwiKoru Blob store.',
+    'Open them from the Vercel Blob dashboard or with an authorised server request.',
+    ''
+  )
+
+  return lines.join('\n')
 }
 
 async function dataUrlToFile(
@@ -68,8 +121,6 @@ async function dataUrlToFile(
 function buildQuoteMessage(
   config: NonNullable<ReturnType<typeof useQuote>['config']>
 ): string {
-  const warning = (config as { largeFileWarning?: string }).largeFileWarning
-
   return [
     '=== Quote Request ===',
     '',
@@ -80,7 +131,6 @@ function buildQuoteMessage(
     `Quantity: ${config.quantity}`,
     `Price per unit: $${config.pricePerUnit.toFixed(2)} NZD`,
     `Total estimate: $${config.total.toFixed(2)} NZD`,
-    warning ? `File note: ${warning}` : '',
     '',
     '--- Print Settings ---',
     `Infill: ${config.infill}%`,
@@ -110,7 +160,7 @@ function buildCartMessage(items: CartItem[], cartTotal: number): string {
     lines.push(
       `--- Model ${index + 1} ---`,
       `File: ${item.fileName}`,
-      `File status: ${item.file ? 'Available for attachment' : 'Must be attached again or emailed'}`,
+      `File status: ${item.file ? 'Available for secure upload' : 'Must be attached again'}`,
       `Volume: ${item.volume.toFixed(1)} cm³`,
       `Dimensions: ${item.dimensions ? `${item.dimensions.x.toFixed(1)} × ${item.dimensions.y.toFixed(1)} × ${item.dimensions.z.toFixed(1)} mm` : 'Not available'}`,
       `Material: ${item.material}`,
@@ -144,6 +194,8 @@ export default function Contact() {
   const [files, setFiles] = useState<File[]>([])
   const [emailNote, setEmailNote] = useState('')
   const [attachmentWarning, setAttachmentWarning] = useState('')
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadStatus, setUploadStatus] = useState('')
   const [requestSource, setRequestSource] = useState<'none' | 'quote' | 'cart'>('none')
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -208,7 +260,7 @@ export default function Contact() {
           setFiles([nextFile])
         } else if (nextFile) {
           setAttachmentWarning(
-            `${nextFile.name} is ${formatFileSize(nextFile.size)} and was not attached. The limit is ${MAX_ATTACHMENT_MB} MB per file. Please email it or send a download link to ${CONTACT_EMAIL}.`
+            `${nextFile.name} is ${formatFileSize(nextFile.size)} and was not added because the limit is ${MAX_ATTACHMENT_MB} MB per file.`
           )
         }
 
@@ -268,7 +320,7 @@ export default function Contact() {
 
         if (warnings.length > 0) {
           setAttachmentWarning(
-            `${warnings.join(' ')} Please attach them again or email them or a download link to ${CONTACT_EMAIL}.`
+            `${warnings.join(' ')} Please attach the missing files again before sending the request.`
           )
         }
       }
@@ -300,7 +352,7 @@ export default function Contact() {
 
       setAttachmentWarning(
         skipped.length > 0
-          ? `These files were not attached: ${skipped.join(', ')}. Maximum ${MAX_ATTACHMENT_FILES} files and ${MAX_ATTACHMENT_MB} MB per file. Please email larger files or a download link to ${CONTACT_EMAIL}.`
+          ? `These files were not added: ${skipped.join(', ')}. Maximum ${MAX_ATTACHMENT_FILES} files and ${MAX_ATTACHMENT_MB} MB per file.`
           : ''
       )
 
@@ -315,32 +367,81 @@ export default function Contact() {
     setSubmitting(true)
     setError('')
     setEmailNote('')
+    setUploadProgress(0)
+    setUploadStatus('')
 
     try {
-      const filesToSend = files
+      const filesToUpload = files
         .filter((file) => file.size <= MAX_ATTACHMENT_BYTES)
         .slice(0, MAX_ATTACHMENT_FILES)
 
-      const emailFiles = await Promise.all(
-        filesToSend.map(async (file) => ({
-          name: file.name,
-          type: file.type || 'application/octet-stream',
-          content: await fileToBase64(file),
-        }))
+      if (files.length > filesToUpload.length) {
+        throw new Error(
+          `Please select no more than ${MAX_ATTACHMENT_FILES} files and keep each file under ${MAX_ATTACHMENT_MB} MB.`
+        )
+      }
+
+      const uploadedFiles: UploadedBlobFile[] = []
+
+      for (let index = 0; index < filesToUpload.length; index += 1) {
+        const originalFile = filesToUpload[index]
+        const uploadFile = normaliseUploadFile(originalFile)
+        const safeName = sanitiseFileName(originalFile.name)
+        const pathname = `customer-uploads/${Date.now()}-${index + 1}-${safeName}`
+
+        setUploadStatus(
+          `Uploading file ${index + 1} of ${filesToUpload.length}: ${originalFile.name}`
+        )
+
+        const blob: PutBlobResult = await upload(pathname, uploadFile, {
+          access: 'private',
+          handleUploadUrl: '/api/blob/upload',
+          multipart: originalFile.size > 20 * 1024 * 1024,
+          onUploadProgress: (progress) => {
+            const completedFiles = index
+            const currentFileProgress = progress.percentage / 100
+            const totalProgress =
+              ((completedFiles + currentFileProgress) / filesToUpload.length) * 100
+
+            setUploadProgress(Math.round(totalProgress))
+          },
+        })
+
+        uploadedFiles.push({
+          originalName: originalFile.name,
+          size: originalFile.size,
+          pathname: blob.pathname,
+          url: blob.url,
+          contentType: blob.contentType,
+        })
+      }
+
+      setUploadProgress(filesToUpload.length > 0 ? 100 : 0)
+      setUploadStatus(
+        filesToUpload.length > 0
+          ? 'Files uploaded securely. Sending your message...'
+          : 'Sending your message...'
+      )
+
+      const finalMessage = appendUploadedFilesToMessage(
+        form.message,
+        uploadedFiles
       )
 
       const emailResult = await sendEmail.mutateAsync({
         name: form.name,
         email: form.email,
         subject: form.subject,
-        message: form.message,
+        message: finalMessage,
         company: form.company || undefined,
         phone: form.phone || undefined,
         projectType: form.projectType || undefined,
-        files: emailFiles,
+        files: [],
       })
 
-      if (emailResult.note) setEmailNote(emailResult.note)
+      if (emailResult.note) {
+        setEmailNote(emailResult.note)
+      }
 
       try {
         await createEnquiry.mutateAsync({
@@ -350,19 +451,30 @@ export default function Contact() {
           phone: form.phone || undefined,
           subject: form.subject,
           projectType: form.projectType || undefined,
-          message: form.message,
+          message: finalMessage,
         })
       } catch (dbErr) {
-        console.warn('Enquiry DB save failed, but email was sent:', dbErr)
+        console.warn(
+          'Enquiry DB save failed, but email was sent:',
+          dbErr
+        )
       }
 
-      if (requestSource === 'cart') clearCart()
+      if (requestSource === 'cart') {
+        clearCart()
+      }
 
+      setFiles([])
       setSubmitted(true)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Something went wrong. Please try again.'
+      )
     } finally {
       setSubmitting(false)
+      setUploadStatus('')
     }
   }
 
@@ -436,6 +548,8 @@ export default function Contact() {
                         setAttachmentWarning('')
                         setError('')
                         setEmailNote('')
+                        setUploadProgress(0)
+                        setUploadStatus('')
                       }}
                       className="inline-flex items-center gap-2 px-6 py-3 border border-gray-200 text-charcoal font-medium rounded-lg hover:bg-gray-50 transition-all"
                     >
@@ -539,10 +653,7 @@ export default function Contact() {
                   <div>
                     <label className={labelClass}>Attachments</label>
                     <p className="text-xs text-gray-500 mb-2">
-                      Max {MAX_ATTACHMENT_FILES} files, {MAX_ATTACHMENT_MB} MB each. For larger files, email them or send a download link to{' '}
-                      <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold text-forest underline">
-                        {CONTACT_EMAIL}
-                      </a>.
+                      Max {MAX_ATTACHMENT_FILES} files, up to {MAX_ATTACHMENT_MB} MB each. Files are uploaded securely to private storage and sent with your enquiry.
                     </p>
 
                     {attachmentWarning && (
@@ -586,7 +697,7 @@ export default function Contact() {
                         onClick={() => fileInputRef.current?.click()}
                         className="w-full py-2.5 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
                       >
-                        <Upload size={16} /> Attach files under 3 MB each
+                        <Upload size={16} /> Attach files up to {MAX_ATTACHMENT_MB} MB each
                       </button>
 
                       <input
@@ -599,10 +710,35 @@ export default function Contact() {
                       />
 
                       <p className="text-xs text-gray-400 mt-2">
-                        Max {MAX_ATTACHMENT_FILES} files, {MAX_ATTACHMENT_MB} MB each.
+                        Max {MAX_ATTACHMENT_FILES} files, up to {MAX_ATTACHMENT_MB} MB each. Supported: STL, OBJ, 3MF, STEP, STP, PDF, PNG and JPG.
                       </p>
                     </div>
                   </div>
+
+
+                  {submitting && uploadStatus && (
+                    <div className="rounded-xl border border-gold/30 bg-gold/10 p-4">
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <p className="text-sm font-medium text-forest-dark">
+                          {uploadStatus}
+                        </p>
+                        {files.length > 0 && (
+                          <span className="text-sm font-semibold text-forest">
+                            {uploadProgress}%
+                          </span>
+                        )}
+                      </div>
+
+                      {files.length > 0 && (
+                        <div className="h-2 overflow-hidden rounded-full bg-white">
+                          <div
+                            className="h-full rounded-full bg-gold transition-all duration-300"
+                            style={{ width: `${uploadProgress}%` }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {error && (
                     <div className="p-4 bg-red-50 border border-red-100 rounded-lg text-sm text-red-600">
@@ -617,7 +753,7 @@ export default function Contact() {
                   >
                     {submitting ? (
                       <>
-                        <Loader2 size={18} className="animate-spin" /> Sending...
+                        <Loader2 size={18} className="animate-spin" /> {files.length > 0 ? 'Uploading & Sending...' : 'Sending...'}
                       </>
                     ) : (
                       <>
