@@ -9,7 +9,10 @@ import {
   Minus, Plus, Clock, Truck, Palette, Ruler, Weight
 } from 'lucide-react'
 import { useQuote, type PrintColor } from '../contexts/QuoteContext'
-import ModelViewer, { type ModelAnalysis } from '../components/ModelViewer'
+import ModelViewer, {
+  type ModelAnalysis,
+  type ModelViewerHandle,
+} from '../components/ModelViewer'
 
 const MAX_MODEL_MB = 100
 const MAX_MODEL_BYTES = MAX_MODEL_MB * 1024 * 1024
@@ -146,6 +149,7 @@ export default function Quote() {
   const [fileWarning, setFileWarning] = useState('')
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const modelViewerRef = useRef<ModelViewerHandle>(null)
 
   const file = localFile || ctxFile
 
@@ -284,9 +288,13 @@ export default function Quote() {
 const handleAddToCart = useCallback(() => {
   if (!file || !analysis || !scaledAnalysis) return
 
+  const thumbnailDataUrl =
+    modelViewerRef.current?.captureThumbnail() || undefined
+
   addItem({
     file,
     fileName: file.name,
+    thumbnailDataUrl,
     volume: scaledAnalysis.volume,
     dimensions: scaledAnalysis.bounds,
     material,
@@ -328,6 +336,9 @@ const handleAddToCart = useCallback(() => {
 
 const handleProceed = useCallback(() => {
   if (!file || !analysis || !scaledAnalysis) return
+
+  const thumbnailDataUrl =
+    modelViewerRef.current?.captureThumbnail() || undefined
 
   const quoteConfig = {
     file,
@@ -371,6 +382,7 @@ const handleProceed = useCallback(() => {
           total,
         },
         file: null,
+        thumbnailDataUrl,
       })
     )
   } catch (err) {
@@ -482,6 +494,7 @@ const handleProceed = useCallback(() => {
 
                     <div className="h-[400px] md:h-[450px]">
                       <ModelViewer
+                        ref={modelViewerRef}
                         file={file}
                         color={printColor}
                         material={material}

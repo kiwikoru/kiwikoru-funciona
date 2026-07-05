@@ -122,21 +122,44 @@ export default function Cart() {
                     <ScrollReveal key={item.id}>
                       <div className="border border-gray-200 rounded-2xl p-5 bg-white shadow-sm">
                         <div className="flex items-start justify-between gap-4">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <Package
-                                size={18}
-                                className="text-forest shrink-0"
-                              />
-
-                              <h3 className="font-semibold text-charcoal truncate">
-                                {index + 1}. {item.fileName}
-                              </h3>
+                          <div className="flex items-start gap-4 min-w-0">
+                            <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 rounded-xl overflow-hidden border border-gray-200 bg-cream flex items-center justify-center">
+                              {item.thumbnailDataUrl ? (
+                                <img
+                                  src={item.thumbnailDataUrl}
+                                  alt={`Preview of ${item.fileName}`}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <Package
+                                  size={30}
+                                  className="text-forest/30"
+                                />
+                              )}
                             </div>
 
-                            <p className="text-xs text-gray-400">
-                              {formatFileSize(displayedFileSize)}
-                            </p>
+                            <div className="min-w-0 pt-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Package
+                                  size={18}
+                                  className="text-forest shrink-0"
+                                />
+
+                                <h3 className="font-semibold text-charcoal truncate">
+                                  {index + 1}. {item.fileName}
+                                </h3>
+                              </div>
+
+                              <p className="text-xs text-gray-400">
+                                {formatFileSize(displayedFileSize)}
+                              </p>
+
+                              {item.thumbnailDataUrl && (
+                                <p className="mt-2 text-[11px] text-gray-400">
+                                  Model preview
+                                </p>
+                              )}
+                            </div>
                           </div>
 
                           <button
