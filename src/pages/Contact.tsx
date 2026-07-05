@@ -51,6 +51,7 @@ type UploadedBlobFile = {
   downloadUrl: string
   downloadUrlValidUntil: number
   contentType: string
+  thumbnailUrl?: string
 }
 
 function normaliseUploadFile(file: File): File {
@@ -122,14 +123,15 @@ function appendUploadedFilesToMessage(
       `Size: ${formatFileSize(file.size)}`,
       `Storage path: ${file.pathname}`,
       `Download link (valid for 7 days): ${file.downloadUrl}`,
-      `Private Blob URL: ${file.privateUrl}`,
+      ...(file.thumbnailUrl
+        ? [`Preview image: ${file.thumbnailUrl}`]
+        : []),
       ''
     )
   })
 
   lines.push(
-    'These files are stored in the private KiwiKoru Blob store.',
-    'The download links above are temporary and expire after 7 days.',
+    'The secure download and preview links above expire after 7 days.',
     ''
   )
 
@@ -149,6 +151,30 @@ async function dataUrlToFile(
     type: type || 'application/octet-stream',
     lastModified: lastModified || Date.now(),
   })
+}
+
+async function uploadThumbnailDataUrl(
+  dataUrl: string,
+  originalFileName: string,
+  index: number
+): Promise<string> {
+  const imageFile = await dataUrlToFile(
+    dataUrl,
+    `${sanitiseFileName(originalFileName)}-preview.jpg`,
+    'image/jpeg'
+  )
+
+  const pathname =
+    `customer-uploads/previews/${Date.now()}-${index + 1}-${sanitiseFileName(originalFileName)}-preview.jpg`
+
+  const blob: PutBlobResult = await upload(pathname, imageFile, {
+    access: 'private',
+    handleUploadUrl: '/api/blob/upload',
+    multipart: false,
+  })
+
+  const signedDownload = await createSignedDownloadUrl(blob.pathname)
+  return signedDownload.downloadUrl
 }
 
 function buildQuoteMessage(
@@ -230,6 +256,7 @@ export default function Contact() {
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadStatus, setUploadStatus] = useState('')
   const [requestSource, setRequestSource] = useState<'none' | 'quote' | 'cart'>('none')
+  const [quoteThumbnailDataUrl, setQuoteThumbnailDataUrl] = useState<string | undefined>()
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const loadedRef = useRef(false)
@@ -263,6 +290,10 @@ export default function Contact() {
           try {
             const parsed = JSON.parse(savedQuote)
             nextConfig = parsed.config
+
+            if (typeof parsed.thumbnailDataUrl === 'string') {
+              setQuoteThumbnailDataUrl(parsed.thumbnailDataUrl)
+            }
 
             if (!nextFile && parsed.file?.dataUrl) {
               nextFile = await dataUrlToFile(
@@ -446,6 +477,38 @@ export default function Contact() {
 
         const signedDownload = await createSignedDownloadUrl(blob.pathname)
 
+        const matchingCartItem = cartItems.find(
+          (item) =>
+            item.file === originalFile ||
+            item.fileName === originalFile.name
+        )
+
+        const thumbnailDataUrl =
+          requestSource === 'quote'
+            ? quoteThumbnailDataUrl
+            : matchingCartItem?.thumbnailDataUrl
+
+        let thumbnailUrl: string | undefined
+
+        if (thumbnailDataUrl) {
+          setUploadStatus(
+            `Uploading preview for file ${index + 1} of ${filesToUpload.length}: ${originalFile.name}`
+          )
+
+          try {
+            thumbnailUrl = await uploadThumbnailDataUrl(
+              thumbnailDataUrl,
+              originalFile.name,
+              index
+            )
+          } catch (thumbnailError) {
+            console.warn(
+              '[CONTACT] Thumbnail upload failed, continuing without preview',
+              thumbnailError
+            )
+          }
+        }
+
         uploadedFiles.push({
           originalName: originalFile.name,
           size: originalFile.size,
@@ -454,6 +517,7 @@ export default function Contact() {
           downloadUrl: signedDownload.downloadUrl,
           downloadUrlValidUntil: signedDownload.validUntil,
           contentType: blob.contentType,
+          thumbnailUrl,
         })
       }
 
@@ -506,6 +570,7 @@ export default function Contact() {
       }
 
       setFiles([])
+      setQuoteThumbnailDataUrl(undefined)
       setSubmitted(true)
     } catch (err: unknown) {
       setError(
@@ -591,6 +656,7 @@ export default function Contact() {
                         setEmailNote('')
                         setUploadProgress(0)
                         setUploadStatus('')
+                        setQuoteThumbnailDataUrl(undefined)
                       }}
                       className="inline-flex items-center gap-2 px-6 py-3 border border-gray-200 text-charcoal font-medium rounded-lg hover:bg-gray-50 transition-all"
                     >
