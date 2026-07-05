@@ -1,635 +1,982 @@
-import { z } from "zod";
-import { createRouter, publicQuery } from "./middleware.js";
-import { env } from "./lib/env.js";
-import { Resend } from "resend";
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
+import {
+  Mail, Phone, MapPin, Send, CheckCircle, Upload, X,
+  ArrowRight, Clock, MessageSquare, Loader2, AlertCircle,
+} from 'lucide-react'
+import SEO from '../components/SEO'
+import ScrollReveal from '../components/ScrollReveal'
+import { useQuote } from '../contexts/QuoteContext'
+import { useCart, type CartItem } from '../contexts/CartContext'
+import { trpc } from '@/providers/trpc'
+import type { PutBlobResult } from '@vercel/blob'
+import { upload } from '@vercel/blob/client'
 
-const FROM_EMAIL =
-  env.emailFrom ||
-  process.env.RESEND_FROM ||
-  "KiwiKoru 3D <no-reply@kiwikoru.co.nz>";
+const CONTACT_EMAIL = 'kiwikoru3d@gmail.com'
+const MAX_ATTACHMENT_MB = 100
+const MAX_ATTACHMENT_BYTES = MAX_ATTACHMENT_MB * 1024 * 1024
+const MAX_ATTACHMENT_FILES = 5
 
-const TO_EMAIL =
-  env.emailTo ||
-  process.env.RESEND_TO ||
-  "kiwikoru3d@gmail.com";
+const projectTypes = [
+  'Rapid Prototyping',
+  'Custom Manufacturing',
+  'Replacement Parts',
+  'Product Development',
+  'Engineering Solutions',
+  'Corporate Branding',
+  'Other',
+]
 
-const SITE_URL =
-  process.env.PUBLIC_SITE_URL ||
-  process.env.VITE_PUBLIC_SITE_URL ||
-  "https://kiwikoru.co.nz";
+const subjects = [
+  'General Enquiry',
+  'Get a Quote',
+  'Project Discussion',
+  'Material Question',
+  'Order Status',
+  'Partnership',
+  'Other',
+]
 
-const LOGO_URL =
-  process.env.EMAIL_LOGO_URL ||
-  `${SITE_URL.replace(/\/$/, "")}/images/logo.png`;
+function formatFileSize(bytes: number): string {
+  return bytes >= 1024 * 1024
+    ? `${(bytes / 1024 / 1024).toFixed(2)} MB`
+    : `${(bytes / 1024).toFixed(0)} KB`
+}
 
-const WHATSAPP_URL =
-  "https://wa.me/640272602954?text=Hi%20KiwiKoru%203D%2C%20I%27d%20like%20to%20add%20some%20information%20to%20my%20enquiry.";
+type UploadedBlobFile = {
+  originalName: string
+  size: number
+  pathname: string
+  privateUrl: string
+  downloadUrl: string
+  downloadUrlValidUntil: number
+  contentType: string
+  previewCid?: string
+}
 
-const BRAND = {
-  forest: "#1F3D2E",
-  forestLight: "#315C46",
-  gold: "#C9A96E",
-  cream: "#F7F4ED",
-  charcoal: "#1F2933",
-  muted: "#667085",
-  border: "#E7E5DF",
-  white: "#FFFFFF",
-};
-
-const fileInput = z.object({
-  name: z.string(),
-  type: z.string().optional(),
-  content: z.string(),
-});
-
-const contactInput = z.object({
-  name: z.string().min(1),
-  company: z.string().optional(),
-  email: z.string().email(),
-  phone: z.string().optional(),
-  subject: z.string().min(1),
-  projectType: z.string().optional(),
-  message: z.string().min(1),
-  quoteRef: z.string().optional(),
-  files: z.array(fileInput).optional(),
-});
-
-const quoteInput = z.object({
-  name: z.string().min(1),
-  email: z.string().email(),
-  phone: z.string().optional(),
-  description: z.string().min(1),
-  quantity: z.string().optional(),
-  material: z.string().optional(),
-  files: z.array(fileInput).optional(),
-});
-
-function getResendClient() {
-  const apiKey = env.resendApiKey || process.env.RESEND_API_KEY || "";
-
-  if (!apiKey) {
-    console.error("[EMAIL] Missing RESEND_API_KEY", {
-      envKeys: Object.keys(process.env).filter((key) => key.includes("RESEND")),
-    });
-
-    return null;
+function normaliseUploadFile(file: File): File {
+  if (file.type) {
+    return file
   }
 
-  return new Resend(apiKey);
+  return new File([file], file.name, {
+    type: 'application/octet-stream',
+    lastModified: file.lastModified,
+  })
 }
 
-function escapeHtml(value: string | undefined | null) {
-  return String(value || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+function sanitiseFileName(fileName: string): string {
+  return fileName
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/-+/g, '-')
 }
 
-function safeHtml(value: string | undefined | null) {
-  return escapeHtml(value).replace(/\n/g, "<br/>");
-}
+async function createSignedDownloadUrl(pathname: string): Promise<{
+  downloadUrl: string
+  validUntil: number
+}> {
+  const response = await fetch('/api/blob/download-url', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ pathname }),
+  })
 
-function cleanBase64(content: string) {
-  if (!content) return "";
-  if (content.includes(",")) return content.split(",")[1];
-  return content;
-}
+  const result = await response.json() as {
+    downloadUrl?: string
+    validUntil?: number
+    error?: string
+  }
 
-function createAttachments(
-  files?: { name: string; type?: string; content: string }[]
-) {
-  if (!files || files.length === 0) return undefined;
-
-  return files
-    .filter((file) => file.content && file.content.length > 0)
-    .map((file) => ({
-      filename: file.name,
-      content: cleanBase64(file.content),
-    }));
-}
-
-function renderMessageWithDownloadButtons(message: string) {
-  const lines = message.split(/\r?\n/)
-  const rendered: string[] = []
-
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index]
-    const trimmed = line.trim()
-
-    const downloadMatch = trimmed.match(
-      /^Download link(?:\s*\(valid for 7 days\))?:\s*(https?:\/\/\S+)$/i
+  if (!response.ok || !result.downloadUrl || !result.validUntil) {
+    throw new Error(
+      result.error || 'The secure download link could not be created.'
     )
+  }
 
-    if (downloadMatch) {
-      const downloadUrl = escapeHtml(downloadMatch[1])
-      const nextLine = lines[index + 1]?.trim() || ""
-      const previewMatch = nextLine.match(
-        /^Preview image:\s*(https?:\/\/\S+)$/i
-      )
+  return {
+    downloadUrl: result.downloadUrl,
+    validUntil: result.validUntil,
+  }
+}
 
-      const previewHtml = previewMatch
-        ? `
-            <td
-              width="150"
-              valign="top"
-              style="width:150px;padding:0 16px 0 0;"
-            >
-              <img
-                src="${escapeHtml(previewMatch[1])}"
-                width="134"
-                alt="3D model preview"
-                style="
-                  display:block;
-                  width:134px;
-                  max-width:134px;
-                  height:auto;
-                  border:1px solid ${BRAND.border};
-                  border-radius:10px;
-                  background:${BRAND.cream};
-                "
-              />
-            </td>
-          `
-        : ""
+function appendUploadedFilesToMessage(
+  message: string,
+  uploadedFiles: UploadedBlobFile[]
+): string {
+  if (uploadedFiles.length === 0) {
+    return message
+  }
 
-      rendered.push(`
-        <table
-          role="presentation"
-          width="100%"
-          cellspacing="0"
-          cellpadding="0"
-          border="0"
-          style="
-            margin:14px 0 20px;
-            border-collapse:collapse;
-          "
-        >
-          <tr>
-            ${previewHtml}
-            <td valign="middle" style="padding:0;">
-              <a
-                href="${downloadUrl}"
-                target="_blank"
-                rel="noopener noreferrer"
-                style="
-                  display:inline-block;
-                  background:${BRAND.forest};
-                  color:${BRAND.white};
-                  text-decoration:none;
-                  font-family:Arial,sans-serif;
-                  font-weight:700;
-                  font-size:14px;
-                  padding:13px 20px;
-                  border-radius:8px;
-                "
-              >
-                Download file
-              </a>
+  const lines = [
+    message.trimEnd(),
+    '',
+    '=== Securely Uploaded Files ===',
+    '',
+  ]
 
-              <div
-                style="
-                  margin-top:8px;
-                  font-family:Arial,sans-serif;
-                  font-size:12px;
-                  line-height:1.5;
-                  color:${BRAND.muted};
-                "
-              >
-                Secure download link · valid for 7 days
-              </div>
-            </td>
-          </tr>
-        </table>
-      `)
+  uploadedFiles.forEach((file, index) => {
+    lines.push(
+      `${index + 1}. ${file.originalName}`,
+      `Size: ${formatFileSize(file.size)}`,
+      `Storage path: ${file.pathname}`,
+      `Download link (valid for 7 days): ${file.downloadUrl}`,
+      ...(file.previewCid
+        ? [`Preview CID: ${file.previewCid}`]
+        : []),
+      ''
+    )
+  })
 
-      if (previewMatch) {
-        index += 1
+  lines.push(
+    'The secure download links above expire after 7 days.',
+    ''
+  )
+
+  return lines.join('\n')
+}
+
+async function dataUrlToFile(
+  dataUrl: string,
+  name: string,
+  type: string,
+  lastModified?: number
+): Promise<File> {
+  const response = await fetch(dataUrl)
+  const blob = await response.blob()
+
+  return new File([blob], name, {
+    type: type || 'application/octet-stream',
+    lastModified: lastModified || Date.now(),
+  })
+}
+
+function dataUrlToBase64(dataUrl: string): {
+  content: string
+  contentType: string
+} {
+  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/)
+
+  if (!match) {
+    throw new Error('Invalid preview image data.')
+  }
+
+  return {
+    contentType: match[1] || 'image/jpeg',
+    content: match[2],
+  }
+}
+
+
+function buildQuoteMessage(
+  config: NonNullable<ReturnType<typeof useQuote>['config']>
+): string {
+  return [
+    '=== Quote Request ===',
+    '',
+    `File: ${config.fileName}`,
+    `Volume: ${config.volume.toFixed(1)} cm³`,
+    `Material: ${config.material}`,
+    `Colour: ${config.color}`,
+    `Quantity: ${config.quantity}`,
+    `Price per unit: $${config.pricePerUnit.toFixed(2)} NZD`,
+    `Total estimate: $${config.total.toFixed(2)} NZD`,
+    '',
+    '--- Print Settings ---',
+    `Infill: ${config.infill}%`,
+    `Walls: ${config.walls}`,
+    `Top layers: ${config.topLayers}`,
+    `Bottom layers: ${config.bottomLayers}`,
+    `Layer height: ${config.layerHeight}mm`,
+    `Supports: ${config.support}`,
+    `Finish: ${config.finish}`,
+    '',
+    '=== Additional Notes ===',
+    '',
+  ].filter((line, index, array) => !(line === '' && array[index - 1] === '')).join('\n')
+}
+
+function buildCartMessage(items: CartItem[], cartTotal: number): string {
+  const lines = [
+    '=== Multi-Model Quote Request ===',
+    '',
+    `Models: ${items.length}`,
+    `Total units: ${items.reduce((sum, item) => sum + item.quantity, 0)}`,
+    `Total estimate: $${cartTotal.toFixed(2)} NZD`,
+    '',
+  ]
+
+  items.forEach((item, index) => {
+    lines.push(
+      `--- Model ${index + 1} ---`,
+      `File: ${item.fileName}`,
+      `File status: ${item.file ? 'Available for secure upload' : 'Must be attached again'}`,
+      `Volume: ${item.volume.toFixed(1)} cm³`,
+      `Dimensions: ${item.dimensions ? `${item.dimensions.x.toFixed(1)} × ${item.dimensions.y.toFixed(1)} × ${item.dimensions.z.toFixed(1)} mm` : 'Not available'}`,
+      `Material: ${item.material}`,
+      `Colour: ${item.color}`,
+      `Quantity: ${item.quantity}`,
+      `Scale: ${item.scalePercent.toFixed(1)}%`,
+      `Price per unit: $${item.pricePerUnit.toFixed(2)} NZD`,
+      `Item total: $${item.total.toFixed(2)} NZD`,
+      `Infill: ${item.infill}%`,
+      `Walls: ${item.walls}`,
+      `Top layers: ${item.topLayers}`,
+      `Bottom layers: ${item.bottomLayers}`,
+      `Layer height: ${item.layerHeight}mm`,
+      `Supports: ${item.support}`,
+      `Finish: ${item.finish}`,
+      ''
+    )
+  })
+
+  lines.push('=== Additional Notes ===', '')
+  return lines.join('\n')
+}
+
+export default function Contact() {
+  const { config, setConfig, file: quoteFile, setFile: setQuoteFile } = useQuote()
+  const { items: cartItems, cartTotal, clearCart } = useCart()
+
+  const [submitted, setSubmitted] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [files, setFiles] = useState<File[]>([])
+  const [emailNote, setEmailNote] = useState('')
+  const [attachmentWarning, setAttachmentWarning] = useState('')
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadStatus, setUploadStatus] = useState('')
+  const [requestSource, setRequestSource] = useState<'none' | 'quote' | 'cart'>('none')
+  const [quoteThumbnailDataUrl, setQuoteThumbnailDataUrl] = useState<string | undefined>()
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const loadedRef = useRef(false)
+
+  const [form, setForm] = useState({
+    name: '',
+    company: '',
+    email: '',
+    phone: '',
+    subject: 'General Enquiry',
+    projectType: '',
+    message: '',
+  })
+
+  const createEnquiry = trpc.enquiry.create.useMutation()
+  const sendEmail = trpc.email.send.useMutation()
+
+  useEffect(() => {
+    if (loadedRef.current) return
+
+    let cancelled = false
+
+    async function loadRequest() {
+      let nextConfig = config
+      let nextFile = config?.file || quoteFile
+
+      if (!nextConfig) {
+        const savedQuote = sessionStorage.getItem('kiwikoru_quote_request')
+
+        if (savedQuote) {
+          try {
+            const parsed = JSON.parse(savedQuote)
+            nextConfig = parsed.config
+
+            if (typeof parsed.thumbnailDataUrl === 'string') {
+              setQuoteThumbnailDataUrl(parsed.thumbnailDataUrl)
+            }
+
+            if (!nextFile && parsed.file?.dataUrl) {
+              nextFile = await dataUrlToFile(
+                parsed.file.dataUrl,
+                parsed.file.name,
+                parsed.file.type,
+                parsed.file.lastModified
+              )
+            }
+          } catch (err) {
+            console.error('[CONTACT] Could not read quote request', err)
+          }
+        }
       }
 
-      continue
+      if (cancelled) return
+
+      if (nextConfig) {
+        loadedRef.current = true
+        setRequestSource('quote')
+        setForm((current) => ({
+          ...current,
+          subject: 'Get a Quote',
+          message: buildQuoteMessage(nextConfig),
+        }))
+
+        if (nextFile && nextFile.size <= MAX_ATTACHMENT_BYTES) {
+          setFiles([nextFile])
+        } else if (nextFile) {
+          setAttachmentWarning(
+            `${nextFile.name} is ${formatFileSize(nextFile.size)} and was not added because the limit is ${MAX_ATTACHMENT_MB} MB per file.`
+          )
+        }
+
+        setConfig(null)
+        setQuoteFile(null)
+        sessionStorage.removeItem('kiwikoru_quote_request')
+        return
+      }
+
+      if (cartItems.length > 0) {
+        loadedRef.current = true
+        setRequestSource('cart')
+        setForm((current) => ({
+          ...current,
+          subject: 'Get a Quote',
+          message: buildCartMessage(cartItems, cartTotal),
+        }))
+
+        const availableFiles = cartItems
+          .map((item) => item.file)
+          .filter((file): file is File => Boolean(file))
+
+        const acceptedFiles = availableFiles
+          .filter((file) => file.size <= MAX_ATTACHMENT_BYTES)
+          .slice(0, MAX_ATTACHMENT_FILES)
+
+        setFiles(acceptedFiles)
+
+        const missingCount = cartItems.filter((item) => !item.file).length
+        const oversizedCount = availableFiles.filter(
+          (file) => file.size > MAX_ATTACHMENT_BYTES
+        ).length
+        const validCount = availableFiles.filter(
+          (file) => file.size <= MAX_ATTACHMENT_BYTES
+        ).length
+        const extraCount = Math.max(0, validCount - MAX_ATTACHMENT_FILES)
+
+        const warnings: string[] = []
+
+        if (missingCount > 0) {
+          warnings.push(
+            `${missingCount} saved model file${missingCount === 1 ? '' : 's'} must be attached again because browsers cannot permanently save the original file.`
+          )
+        }
+
+        if (oversizedCount > 0) {
+          warnings.push(
+            `${oversizedCount} file${oversizedCount === 1 ? '' : 's'} exceeded ${MAX_ATTACHMENT_MB} MB and were not attached.`
+          )
+        }
+
+        if (extraCount > 0) {
+          warnings.push(
+            `${extraCount} file${extraCount === 1 ? '' : 's'} exceeded the maximum of ${MAX_ATTACHMENT_FILES} attachments.`
+          )
+        }
+
+        if (warnings.length > 0) {
+          setAttachmentWarning(
+            `${warnings.join(' ')} Please attach the missing files again before sending the request.`
+          )
+        }
+      }
     }
 
-    const previewOnlyMatch = trimmed.match(
-      /^Preview image:\s*(https?:\/\/\S+)$/i
-    )
+    loadRequest()
 
-    if (previewOnlyMatch) {
-      rendered.push(`
-        <div style="margin:12px 0 18px;">
-          <img
-            src="${escapeHtml(previewOnlyMatch[1])}"
-            width="180"
-            alt="3D model preview"
-            style="
-              display:block;
-              width:180px;
-              max-width:100%;
-              height:auto;
-              border:1px solid ${BRAND.border};
-              border-radius:10px;
-              background:${BRAND.cream};
-            "
-          />
-        </div>
-      `)
-      continue
+    return () => {
+      cancelled = true
     }
+  }, [config, quoteFile, setConfig, setQuoteFile, cartItems, cartTotal])
 
-    if (!trimmed) {
-      rendered.push(
-        '<div style="height:8px;line-height:8px;">&nbsp;</div>'
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(event.target.files || [])
+
+    setFiles((currentFiles) => {
+      const nextFiles = [...currentFiles]
+      const skipped: string[] = []
+
+      selectedFiles.forEach((file) => {
+        if (nextFiles.length >= MAX_ATTACHMENT_FILES) {
+          skipped.push(`${file.name} (maximum ${MAX_ATTACHMENT_FILES} files)`)
+        } else if (file.size > MAX_ATTACHMENT_BYTES) {
+          skipped.push(`${file.name} (${formatFileSize(file.size)})`)
+        } else {
+          nextFiles.push(file)
+        }
+      })
+
+      setAttachmentWarning(
+        skipped.length > 0
+          ? `These files were not added: ${skipped.join(', ')}. Maximum ${MAX_ATTACHMENT_FILES} files and ${MAX_ATTACHMENT_MB} MB per file.`
+          : ''
       )
-      continue
-    }
 
-    if (/^===.*===$/.test(trimmed)) {
-      rendered.push(`
-        <h3
-          style="
-            margin:18px 0 8px;
-            color:${BRAND.forest};
-            font-family:Arial,sans-serif;
-            font-size:16px;
-            line-height:1.4;
-          "
-        >
-          ${escapeHtml(trimmed.replaceAll("=", "").trim())}
-        </h3>
-      `)
-      continue
-    }
+      return nextFiles
+    })
 
-    if (/^---.*---$/.test(trimmed)) {
-      rendered.push(`
-        <h4
-          style="
-            margin:16px 0 6px;
-            color:${BRAND.charcoal};
-            font-family:Arial,sans-serif;
-            font-size:14px;
-            line-height:1.4;
-          "
-        >
-          ${escapeHtml(trimmed.replaceAll("-", "").trim())}
-        </h4>
-      `)
-      continue
-    }
-
-    rendered.push(`
-      <p
-        style="
-          margin:5px 0;
-          color:${BRAND.charcoal};
-          font-family:Arial,sans-serif;
-          font-size:14px;
-          line-height:1.6;
-        "
-      >
-        ${escapeHtml(line)}
-      </p>
-    `)
+    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  return rendered.join("")
-}
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault()
+    setSubmitting(true)
+    setError('')
+    setEmailNote('')
+    setUploadProgress(0)
+    setUploadStatus('')
 
-function emailShell(content: string, preheader: string) {
-  return `
-    <!doctype html>
-    <html>
-      <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>KiwiKoru 3D</title>
-      </head>
-      <body style="margin:0;padding:0;background:${BRAND.cream};">
-        <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
-          ${escapeHtml(preheader)}
+    try {
+      const filesToUpload = files
+        .filter((file) => file.size <= MAX_ATTACHMENT_BYTES)
+        .slice(0, MAX_ATTACHMENT_FILES)
+
+      if (files.length > filesToUpload.length) {
+        throw new Error(
+          `Please select no more than ${MAX_ATTACHMENT_FILES} files and keep each file under ${MAX_ATTACHMENT_MB} MB.`
+        )
+      }
+
+      const uploadedFiles: UploadedBlobFile[] = []
+      const inlinePreviews: {
+        fileName: string
+        content: string
+        contentType: string
+        contentId: string
+      }[] = []
+
+      for (let index = 0; index < filesToUpload.length; index += 1) {
+        const originalFile = filesToUpload[index]
+        const uploadFile = normaliseUploadFile(originalFile)
+        const safeName = sanitiseFileName(originalFile.name)
+        const pathname = `customer-uploads/${Date.now()}-${index + 1}-${safeName}`
+
+        setUploadStatus(
+          `Uploading file ${index + 1} of ${filesToUpload.length}: ${originalFile.name}`
+        )
+
+        const blob: PutBlobResult = await upload(pathname, uploadFile, {
+          access: 'private',
+          handleUploadUrl: '/api/blob/upload',
+          multipart: originalFile.size > 20 * 1024 * 1024,
+          onUploadProgress: (progress) => {
+            const completedFiles = index
+            const currentFileProgress = progress.percentage / 100
+            const totalProgress =
+              ((completedFiles + currentFileProgress) / filesToUpload.length) * 100
+
+            setUploadProgress(Math.round(totalProgress))
+          },
+        })
+
+        setUploadStatus(
+          `Creating secure download link for file ${index + 1} of ${filesToUpload.length}: ${originalFile.name}`
+        )
+
+        const signedDownload = await createSignedDownloadUrl(blob.pathname)
+
+        const matchingCartItem = cartItems.find(
+          (item) =>
+            item.file === originalFile ||
+            item.fileName === originalFile.name
+        )
+
+        const thumbnailDataUrl =
+          requestSource === 'quote'
+            ? quoteThumbnailDataUrl
+            : matchingCartItem?.thumbnailDataUrl
+
+        let previewCid: string | undefined
+
+        if (thumbnailDataUrl) {
+          try {
+            const preview = dataUrlToBase64(thumbnailDataUrl)
+            previewCid = `model-preview-${index + 1}`
+
+            inlinePreviews.push({
+              fileName: `${sanitiseFileName(originalFile.name)}-preview.jpg`,
+              content: preview.content,
+              contentType: preview.contentType,
+              contentId: previewCid,
+            })
+          } catch (thumbnailError) {
+            console.warn(
+              '[CONTACT] Could not prepare inline thumbnail',
+              thumbnailError
+            )
+          }
+        }
+
+        uploadedFiles.push({
+          originalName: originalFile.name,
+          size: originalFile.size,
+          pathname: blob.pathname,
+          privateUrl: blob.url,
+          downloadUrl: signedDownload.downloadUrl,
+          downloadUrlValidUntil: signedDownload.validUntil,
+          contentType: blob.contentType,
+          previewCid,
+        })
+      }
+
+      setUploadProgress(filesToUpload.length > 0 ? 100 : 0)
+      setUploadStatus(
+        filesToUpload.length > 0
+          ? 'Files uploaded securely. Sending your message...'
+          : 'Sending your message...'
+      )
+
+      const finalMessage = appendUploadedFilesToMessage(
+        form.message,
+        uploadedFiles
+      )
+
+      const emailResult = await sendEmail.mutateAsync({
+        name: form.name,
+        email: form.email,
+        subject: form.subject,
+        message: finalMessage,
+        company: form.company || undefined,
+        phone: form.phone || undefined,
+        projectType: form.projectType || undefined,
+        files: [],
+        previews: inlinePreviews.length > 0 ? inlinePreviews : undefined,
+      })
+
+      if (emailResult.note) {
+        setEmailNote(emailResult.note)
+      }
+
+      try {
+        await createEnquiry.mutateAsync({
+          name: form.name,
+          company: form.company || undefined,
+          email: form.email,
+          phone: form.phone || undefined,
+          subject: form.subject,
+          projectType: form.projectType || undefined,
+          message: finalMessage,
+        })
+      } catch (dbErr) {
+        console.warn(
+          'Enquiry DB save failed, but email was sent:',
+          dbErr
+        )
+      }
+
+      if (requestSource === 'cart') {
+        clearCart()
+      }
+
+      setFiles([])
+      setQuoteThumbnailDataUrl(undefined)
+      setSubmitted(true)
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Something went wrong. Please try again.'
+      )
+    } finally {
+      setSubmitting(false)
+      setUploadStatus('')
+    }
+  }
+
+  const inputClass = 'w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent transition-all bg-white'
+  const labelClass = 'text-sm font-medium text-charcoal mb-1.5 block'
+
+  return (
+    <>
+      <SEO
+        title="Contact KiwiKoru 3D | 3D Printing NZ"
+        description="Get in touch with KiwiKoru 3D for custom 3D printing, rapid prototyping, and product development services in New Zealand."
+        path="/contact"
+      />
+
+      <section className="bg-forest pt-28 pb-10">
+        <div className="max-w-7xl mx-auto px-6">
+          <ScrollReveal>
+            <h1 className="text-3xl md:text-4xl font-bold text-white">
+              Contact <span className="text-gold">Us</span>
+            </h1>
+            <p className="mt-3 text-white/60 max-w-xl">
+              Have a project in mind? Send us a message and we will get back to you within 24 hours.
+            </p>
+          </ScrollReveal>
         </div>
+      </section>
 
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:${BRAND.cream};">
-          <tr>
-            <td align="center" style="padding:24px 12px;">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;background:${BRAND.white};border:1px solid ${BRAND.border};border-radius:16px;overflow:hidden;">
-                <tr>
-                  <td style="background:${BRAND.forest};padding:24px 28px;font-family:Arial,sans-serif;">
-                    <div style="color:${BRAND.white};font-size:22px;font-weight:700;">
-                      KiwiKoru 3D
+      <section className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid lg:grid-cols-[1fr_380px] gap-12">
+            <ScrollReveal>
+              {submitted ? (
+                <div className="border border-gray-200 rounded-2xl p-12 text-center bg-cream">
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
+                    <CheckCircle size={32} className="text-green-600" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-charcoal mb-3">Message Sent!</h2>
+                  <p className="text-gray-600 mb-4 max-w-md mx-auto">
+                    Thank you for reaching out. We have received your enquiry and will respond within 24 hours.
+                  </p>
+
+                  {emailNote && (
+                    <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-4 py-2 mb-8 max-w-md mx-auto">
+                      {emailNote}
+                    </p>
+                  )}
+
+                  <div className="flex flex-wrap justify-center gap-3">
+                    <Link
+                      to="/quote"
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-gold text-forest-dark font-semibold rounded-lg hover:bg-gold-light transition-all"
+                    >
+                      Get a Quote <ArrowRight size={16} />
+                    </Link>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSubmitted(false)
+                        setRequestSource('none')
+                        setForm({
+                          name: '',
+                          company: '',
+                          email: '',
+                          phone: '',
+                          subject: 'General Enquiry',
+                          projectType: '',
+                          message: '',
+                        })
+                        setFiles([])
+                        setAttachmentWarning('')
+                        setError('')
+                        setEmailNote('')
+                        setUploadProgress(0)
+                        setUploadStatus('')
+                        setQuoteThumbnailDataUrl(undefined)
+                      }}
+                      className="inline-flex items-center gap-2 px-6 py-3 border border-gray-200 text-charcoal font-medium rounded-lg hover:bg-gray-50 transition-all"
+                    >
+                      Send Another Message
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  <div className="grid sm:grid-cols-2 gap-5">
+                    <div>
+                      <label className={labelClass}>Name *</label>
+                      <input
+                        type="text"
+                        required
+                        value={form.name}
+                        onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+                        placeholder="Your name"
+                        className={inputClass}
+                      />
                     </div>
-                    <div style="color:#D8E3DC;font-size:13px;margin-top:5px;">
-                      Your Ideas. Made Real. Made in NZ.
+
+                    <div>
+                      <label className={labelClass}>Company</label>
+                      <input
+                        type="text"
+                        value={form.company}
+                        onChange={(event) => setForm((current) => ({ ...current, company: event.target.value }))}
+                        placeholder="Your company (optional)"
+                        className={inputClass}
+                      />
                     </div>
-                  </td>
-                </tr>
+                  </div>
 
-                <tr>
-                  <td style="padding:30px 28px;font-family:Arial,sans-serif;">
-                    ${content}
-                  </td>
-                </tr>
-
-                <tr>
-                  <td align="center" style="background:#F3F0E8;border-top:1px solid ${BRAND.border};padding:18px 24px;font-family:Arial,sans-serif;">
-                    <div style="font-size:12px;color:${BRAND.muted};line-height:1.6;">
-                      KiwiKoru 3D · Whangārei, Northland, New Zealand<br/>
-                      <a href="mailto:${escapeHtml(TO_EMAIL)}" style="color:${BRAND.forestLight};text-decoration:none;">
-                        ${escapeHtml(TO_EMAIL)}
-                      </a>
+                  <div className="grid sm:grid-cols-2 gap-5">
+                    <div>
+                      <label className={labelClass}>Email *</label>
+                      <input
+                        type="email"
+                        required
+                        value={form.email}
+                        onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+                        placeholder="your@email.com"
+                        className={inputClass}
+                      />
                     </div>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-        </table>
-      </body>
-    </html>
-  `;
-}
 
-function ownerEmailHtml(
-  input: z.infer<typeof contactInput>,
-  attachmentsCount: number
-) {
-  return emailShell(
-    `
-      <h1 style="margin:0 0 20px;color:${BRAND.forest};font-size:24px;line-height:1.3;">
-        New website enquiry
-      </h1>
+                    <div>
+                      <label className={labelClass}>Phone</label>
+                      <input
+                        type="tel"
+                        value={form.phone}
+                        onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))}
+                        placeholder="+64 ..."
+                        className={inputClass}
+                      />
+                    </div>
+                  </div>
 
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;">
-        <tr><td style="padding:7px 0;color:${BRAND.muted};font-size:13px;width:130px;">Name</td><td style="padding:7px 0;color:${BRAND.charcoal};font-size:14px;font-weight:600;">${safeHtml(input.name)}</td></tr>
-        <tr><td style="padding:7px 0;color:${BRAND.muted};font-size:13px;">Company</td><td style="padding:7px 0;color:${BRAND.charcoal};font-size:14px;">${safeHtml(input.company || "-")}</td></tr>
-        <tr><td style="padding:7px 0;color:${BRAND.muted};font-size:13px;">Email</td><td style="padding:7px 0;color:${BRAND.charcoal};font-size:14px;"><a href="mailto:${escapeHtml(input.email)}" style="color:${BRAND.forestLight};">${safeHtml(input.email)}</a></td></tr>
-        <tr><td style="padding:7px 0;color:${BRAND.muted};font-size:13px;">Phone</td><td style="padding:7px 0;color:${BRAND.charcoal};font-size:14px;">${safeHtml(input.phone || "-")}</td></tr>
-        <tr><td style="padding:7px 0;color:${BRAND.muted};font-size:13px;">Subject</td><td style="padding:7px 0;color:${BRAND.charcoal};font-size:14px;">${safeHtml(input.subject)}</td></tr>
-        <tr><td style="padding:7px 0;color:${BRAND.muted};font-size:13px;">Project type</td><td style="padding:7px 0;color:${BRAND.charcoal};font-size:14px;">${safeHtml(input.projectType || "-")}</td></tr>
-        <tr><td style="padding:7px 0;color:${BRAND.muted};font-size:13px;">Quote reference</td><td style="padding:7px 0;color:${BRAND.charcoal};font-size:14px;">${safeHtml(input.quoteRef || "-")}</td></tr>
-        <tr><td style="padding:7px 0;color:${BRAND.muted};font-size:13px;">Email attachments</td><td style="padding:7px 0;color:${BRAND.charcoal};font-size:14px;">${attachmentsCount}</td></tr>
-      </table>
+                  <div className="grid sm:grid-cols-2 gap-5">
+                    <div>
+                      <label className={labelClass}>Subject *</label>
+                      <select
+                        value={form.subject}
+                        onChange={(event) => setForm((current) => ({ ...current, subject: event.target.value }))}
+                        className={inputClass}
+                      >
+                        {subjects.map((subject) => (
+                          <option key={subject} value={subject}>{subject}</option>
+                        ))}
+                      </select>
+                    </div>
 
-      <div style="height:1px;background:${BRAND.border};margin:22px 0;"></div>
+                    <div>
+                      <label className={labelClass}>Project Type</label>
+                      <select
+                        value={form.projectType}
+                        onChange={(event) => setForm((current) => ({ ...current, projectType: event.target.value }))}
+                        className={inputClass}
+                      >
+                        <option value="">Select project type</option>
+                        {projectTypes.map((projectType) => (
+                          <option key={projectType} value={projectType}>{projectType}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
 
-      <h2 style="margin:0 0 12px;color:${BRAND.charcoal};font-size:17px;">
-        Message and uploaded files
-      </h2>
+                  <div>
+                    <label className={labelClass}>Message *</label>
+                    <textarea
+                      required
+                      rows={10}
+                      value={form.message}
+                      onChange={(event) => setForm((current) => ({ ...current, message: event.target.value }))}
+                      placeholder="Tell us about your project..."
+                      className={`${inputClass} resize-none text-sm leading-relaxed`}
+                    />
+                  </div>
 
-      <div style="background:#FAF9F6;border:1px solid ${BRAND.border};border-radius:12px;padding:18px;">
-        ${renderMessageWithDownloadButtons(input.message)}
-      </div>
+                  <div>
+                    <label className={labelClass}>Attachments</label>
+                    <p className="text-xs text-gray-500 mb-2">
+                      Max {MAX_ATTACHMENT_FILES} files, up to {MAX_ATTACHMENT_MB} MB each. Files are uploaded securely to private storage and sent with your enquiry.
+                    </p>
 
-      <div style="margin-top:22px;">
-        <a
-          href="mailto:${escapeHtml(input.email)}"
-          style="
-            display:inline-block;
-            background:${BRAND.gold};
-            color:${BRAND.forest};
-            text-decoration:none;
-            font-weight:700;
-            font-size:14px;
-            padding:13px 18px;
-            border-radius:8px;
-          "
-        >
-          Reply to ${safeHtml(input.name)}
-        </a>
-      </div>
-    `,
-    `New enquiry from ${input.name}`
-  );
-}
+                    {attachmentWarning && (
+                      <div className="mb-3 flex items-start gap-2 rounded-xl bg-gold text-forest-dark px-4 py-3 text-sm font-medium shadow-sm">
+                        <AlertCircle size={18} className="shrink-0 mt-0.5" />
+                        <p>{attachmentWarning}</p>
+                      </div>
+                    )}
 
-function clientEmailHtml(name: string, isQuote: boolean) {
-  const heading = isQuote
-    ? "Thanks — we’ve received your quote request"
-    : "Thanks for getting in touch";
+                    <div className="border border-gray-200 border-dashed rounded-lg p-4">
+                      {files.length > 0 && (
+                        <div className="space-y-2 mb-3">
+                          {files.map((file, index) => (
+                            <div
+                              key={`${file.name}-${file.lastModified}-${index}`}
+                              className="flex items-center justify-between bg-cream rounded-lg px-3 py-2 text-sm"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <Upload size={14} className="text-forest shrink-0" />
+                                <span className="truncate text-gray-600">{file.name}</span>
+                                <span className="text-gray-400 text-xs shrink-0">
+                                  ({formatFileSize(file.size)})
+                                </span>
+                              </div>
 
-  const intro = isQuote
-    ? "Your quote request is safely with us. We’ll review the details and any files you included, then come back to you with the next steps."
-    : "Your message is safely with us. We’ll take the time to review everything carefully and get back to you as soon as possible.";
+                              <button
+                                type="button"
+                                onClick={() => setFiles((current) => current.filter((_, currentIndex) => currentIndex !== index))}
+                                className="p-1 hover:bg-gray-200 rounded transition-colors shrink-0"
+                                aria-label={`Remove ${file.name}`}
+                              >
+                                <X size={14} className="text-gray-400" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
-  return emailShell(
-    `
-      <h1 style="margin:0 0 16px;color:${BRAND.forest};font-size:25px;line-height:1.3;">
-        ${heading}
-      </h1>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full py-2.5 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Upload size={16} /> Attach files up to {MAX_ATTACHMENT_MB} MB each
+                      </button>
 
-      <p style="margin:0 0 14px;color:${BRAND.charcoal};font-size:15px;line-height:1.7;">
-        Hi ${safeHtml(name)},
-      </p>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        multiple
+                        accept=".stl,.obj,.3mf,.pdf,.png,.jpg,.jpeg,.step,.stp"
+                        className="hidden"
+                        onChange={handleFileSelect}
+                      />
 
-      <p style="margin:0 0 14px;color:${BRAND.charcoal};font-size:15px;line-height:1.7;">
-        ${intro}
-      </p>
+                      <p className="text-xs text-gray-400 mt-2">
+                        Max {MAX_ATTACHMENT_FILES} files, up to {MAX_ATTACHMENT_MB} MB each. Supported: STL, OBJ, 3MF, STEP, STP, PDF, PNG and JPG.
+                      </p>
+                    </div>
+                  </div>
 
-      <p style="margin:0 0 22px;color:${BRAND.charcoal};font-size:15px;line-height:1.7;">
-        We usually reply within 24 hours. If you remember anything else or would like to send us another photo, measurement or detail, just message us directly on WhatsApp.
-      </p>
 
-      <div style="margin:0 0 22px;">
-        <a
-          href="${escapeHtml(WHATSAPP_URL)}"
-          target="_blank"
-          rel="noopener noreferrer"
-          style="
-            display:inline-block;
-            background:#25D366;
-            color:#FFFFFF;
-            text-decoration:none;
-            font-weight:700;
-            font-size:14px;
-            padding:13px 20px;
-            border-radius:8px;
-          "
-        >
-          Message us on WhatsApp
-        </a>
-      </div>
+                  {submitting && uploadStatus && (
+                    <div className="rounded-xl border border-gold/30 bg-gold/10 p-4">
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <p className="text-sm font-medium text-forest-dark">
+                          {uploadStatus}
+                        </p>
+                        {files.length > 0 && (
+                          <span className="text-sm font-semibold text-forest">
+                            {uploadProgress}%
+                          </span>
+                        )}
+                      </div>
 
-      <p style="margin:0;color:${BRAND.charcoal};font-size:15px;line-height:1.7;">
-        Warm regards,<br/>
-        <strong>Rodrigo and the KiwiKoru 3D team</strong>
-      </p>
+                      {files.length > 0 && (
+                        <div className="h-2 overflow-hidden rounded-full bg-white">
+                          <div
+                            className="h-full rounded-full bg-gold transition-all duration-300"
+                            style={{ width: `${uploadProgress}%` }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-      <div style="margin-top:24px;text-align:center;">
-        <img
-          src="${escapeHtml(LOGO_URL)}"
-          width="72"
-          alt="KiwiKoru 3D"
-          style="display:inline-block;width:72px;height:auto;border:0;"
-        />
-      </div>
-    `,
-    isQuote
-      ? "We’ve received your KiwiKoru 3D quote request."
-      : "We’ve received your message and will be in touch soon."
-  );
-}
+                  {error && (
+                    <div className="p-4 bg-red-50 border border-red-100 rounded-lg text-sm text-red-600">
+                      {error}
+                    </div>
+                  )}
 
-async function sendContactEmails(input: z.infer<typeof contactInput>) {
-  const resend = getResendClient();
-  const attachments = createAttachments(input.files);
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="w-full inline-flex items-center justify-center gap-2 px-8 py-4 bg-gold text-forest-dark font-semibold rounded-lg hover:bg-gold-light transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 size={18} className="animate-spin" /> {files.length > 0 ? 'Uploading & Sending...' : 'Sending...'}
+                      </>
+                    ) : (
+                      <>
+                        <Send size={18} /> Send Message
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
+            </ScrollReveal>
 
-  console.log("[EMAIL CONTACT]", {
-    to: TO_EMAIL,
-    from: FROM_EMAIL,
-    replyTo: input.email,
-    filesCount: input.files?.length || 0,
-    filesNames: input.files?.map((file) => file.name) || [],
-    attachmentsCount: attachments?.length || 0,
-  });
+            <div className="space-y-6">
+              <ScrollReveal>
+                <div className="border border-gray-200 rounded-2xl p-6 bg-cream">
+                  <h3 className="text-lg font-semibold text-charcoal mb-5">Contact Information</h3>
 
-  if (!resend) {
-    return {
-      success: false,
-      emailSent: false,
-      note: "Email not sent. RESEND_API_KEY is missing in Vercel.",
-    };
-  }
+                  <div className="space-y-4">
+                    <a href={`mailto:${CONTACT_EMAIL}`} className="flex items-start gap-3 group">
+                      <div className="w-10 h-10 bg-forest/5 rounded-lg flex items-center justify-center shrink-0">
+                        <Mail size={18} className="text-forest" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-charcoal group-hover:text-forest transition-colors">
+                          {CONTACT_EMAIL}
+                        </p>
+                        <p className="text-xs text-gray-400">Email us anytime</p>
+                      </div>
+                    </a>
 
-  const ownerEmail = await resend.emails.send({
-    from: FROM_EMAIL,
-    to: TO_EMAIL,
-    replyTo: input.email,
-    subject: `[KiwiKoru] ${input.subject} — ${input.name}`,
-    html: ownerEmailHtml(input, attachments?.length || 0),
-    attachments,
-  });
+                    <a href="tel:+640272602954" className="flex items-start gap-3 group">
+                      <div className="w-10 h-10 bg-forest/5 rounded-lg flex items-center justify-center shrink-0">
+                        <Phone size={18} className="text-forest" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-charcoal group-hover:text-forest transition-colors">
+                          +64 027 260 2954
+                        </p>
+                        <p className="text-xs text-gray-400">Mon–Fri, 8am–5pm NZST</p>
+                      </div>
+                    </a>
 
-  if (ownerEmail.error) {
-    console.error("[EMAIL CONTACT ERROR]", ownerEmail.error);
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 bg-forest/5 rounded-lg flex items-center justify-center shrink-0">
+                        <MapPin size={18} className="text-forest" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-charcoal">Whangārei, Northland</p>
+                        <p className="text-xs text-gray-400">New Zealand</p>
+                      </div>
+                    </div>
 
-    return {
-      success: false,
-      emailSent: false,
-      note: ownerEmail.error.message || "Owner email failed.",
-    };
-  }
+                    <a
+                      href="https://wa.me/640272602954?text=Hi%20KiwiKoru%2C%20I%27m%20interested%20in%20your%203D%20printing%20services"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-start gap-3 group"
+                    >
+                      <div className="w-10 h-10 bg-[#25D366]/10 rounded-lg flex items-center justify-center shrink-0">
+                        <MessageSquare size={18} className="text-[#25D366]" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-charcoal group-hover:text-[#25D366] transition-colors">
+                          WhatsApp
+                        </p>
+                        <p className="text-xs text-gray-400">Quick chat on WhatsApp</p>
+                      </div>
+                    </a>
+                  </div>
+                </div>
+              </ScrollReveal>
 
-  const clientEmail = await resend.emails.send({
-    from: FROM_EMAIL,
-    to: input.email,
-    replyTo: TO_EMAIL,
-    subject:
-      input.subject === "Get a Quote"
-        ? "We received your quote request — KiwiKoru 3D"
-        : "Thanks for getting in touch — KiwiKoru 3D",
-    html: clientEmailHtml(input.name, input.subject === "Get a Quote"),
-  });
+              <ScrollReveal>
+                <div className="border border-gray-200 rounded-2xl p-6 bg-white">
+                  <h3 className="text-lg font-semibold text-charcoal mb-4">Business Hours</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Monday – Friday</span>
+                      <span className="font-medium text-charcoal">8:00 AM – 5:00 PM</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Saturday</span>
+                      <span className="font-medium text-charcoal">By appointment</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Sunday</span>
+                      <span className="text-gray-400">Closed</span>
+                    </div>
+                  </div>
 
-  if (clientEmail.error) {
-    console.error("[EMAIL CLIENT ERROR]", clientEmail.error);
-  }
+                  <div className="mt-4 flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-100 rounded-lg">
+                    <Clock size={14} className="text-green-600" />
+                    <span className="text-xs text-green-700 font-medium">
+                      Currently accepting new projects
+                    </span>
+                  </div>
+                </div>
+              </ScrollReveal>
 
-  return {
-    success: true,
-    emailSent: true,
-    message: "Emails sent successfully",
-    filesReceived: input.files?.length || 0,
-    attachmentsSent: attachments?.length || 0,
-  };
-}
-
-async function sendQuoteEmails(input: z.infer<typeof quoteInput>) {
-  const resend = getResendClient();
-  const attachments = createAttachments(input.files);
-
-  console.log("[EMAIL QUOTE]", {
-    to: TO_EMAIL,
-    from: FROM_EMAIL,
-    replyTo: input.email,
-    filesCount: input.files?.length || 0,
-    filesNames: input.files?.map((file) => file.name) || [],
-  });
-
-  if (!resend) {
-    return {
-      success: false,
-      emailSent: false,
-      note: "Email not sent. RESEND_API_KEY is missing in Vercel.",
-    };
-  }
-
-  const ownerEmail = await resend.emails.send({
-    from: FROM_EMAIL,
-    to: TO_EMAIL,
-    replyTo: input.email,
-    subject: `New quote request from ${input.name}`,
-    html: emailShell(
-      `
-        <h1 style="margin:0 0 20px;color:${BRAND.forest};font-size:24px;">
-          New quote request
-        </h1>
-
-        <p style="margin:5px 0;color:${BRAND.charcoal};font-size:14px;"><strong>Name:</strong> ${safeHtml(input.name)}</p>
-        <p style="margin:5px 0;color:${BRAND.charcoal};font-size:14px;"><strong>Email:</strong> ${safeHtml(input.email)}</p>
-        <p style="margin:5px 0;color:${BRAND.charcoal};font-size:14px;"><strong>Phone:</strong> ${safeHtml(input.phone || "-")}</p>
-        <p style="margin:5px 0;color:${BRAND.charcoal};font-size:14px;"><strong>Quantity:</strong> ${safeHtml(input.quantity || "-")}</p>
-        <p style="margin:5px 0;color:${BRAND.charcoal};font-size:14px;"><strong>Material:</strong> ${safeHtml(input.material || "-")}</p>
-
-        <div style="height:1px;background:${BRAND.border};margin:22px 0;"></div>
-
-        <h2 style="margin:0 0 12px;color:${BRAND.charcoal};font-size:17px;">Description</h2>
-
-        <div style="background:#FAF9F6;border:1px solid ${BRAND.border};border-radius:12px;padding:18px;">
-          ${renderMessageWithDownloadButtons(input.description)}
+              <ScrollReveal>
+                <div className="border border-gray-200 rounded-2xl p-6 bg-white">
+                  <h3 className="text-lg font-semibold text-charcoal mb-3">Need a Quick Quote?</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Upload your 3D model and get an instant price estimate with our online quote tool.
+                  </p>
+                  <Link
+                    to="/quote"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-forest text-white font-medium rounded-lg hover:bg-forest-light transition-all w-full justify-center"
+                  >
+                    Get Instant Quote <ArrowRight size={16} />
+                  </Link>
+                </div>
+              </ScrollReveal>
+            </div>
+          </div>
         </div>
-      `,
-      `New quote request from ${input.name}`
-    ),
-    attachments,
-  });
-
-  if (ownerEmail.error) {
-    console.error("[EMAIL QUOTE ERROR]", ownerEmail.error);
-
-    return {
-      success: false,
-      emailSent: false,
-      note: ownerEmail.error.message || "Quote email failed.",
-    };
-  }
-
-  const clientEmail = await resend.emails.send({
-    from: FROM_EMAIL,
-    to: input.email,
-    replyTo: TO_EMAIL,
-    subject: "We received your quote request — KiwiKoru 3D",
-    html: clientEmailHtml(input.name, true),
-  });
-
-  if (clientEmail.error) {
-    console.error("[EMAIL QUOTE CLIENT ERROR]", clientEmail.error);
-  }
-
-  return {
-    success: true,
-    emailSent: true,
-    message: "Quote emails sent successfully",
-    filesReceived: input.files?.length || 0,
-  };
+      </section>
+    </>
+  )
 }
-
-export const emailRouter = createRouter({
-  send: publicQuery
-    .input(contactInput)
-    .mutation(async ({ input }) => {
-      return sendContactEmails(input);
-    }),
-
-  sendContact: publicQuery
-    .input(contactInput)
-    .mutation(async ({ input }) => {
-      return sendContactEmails(input);
-    }),
-
-  sendQuote: publicQuery
-    .input(quoteInput)
-    .mutation(async ({ input }) => {
-      return sendQuoteEmails(input);
-    }),
-});

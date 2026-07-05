@@ -42,6 +42,13 @@ const fileInput = z.object({
   content: z.string(),
 });
 
+const previewInput = z.object({
+  fileName: z.string(),
+  content: z.string(),
+  contentType: z.string().optional(),
+  contentId: z.string().max(127),
+});
+
 const contactInput = z.object({
   name: z.string().min(1),
   company: z.string().optional(),
@@ -52,6 +59,7 @@ const contactInput = z.object({
   message: z.string().min(1),
   quoteRef: z.string().optional(),
   files: z.array(fileInput).optional(),
+  previews: z.array(previewInput).max(5).optional(),
 });
 
 const quoteInput = z.object({
@@ -111,73 +119,189 @@ function createAttachments(
 }
 
 function renderMessageWithDownloadButtons(message: string) {
-  const lines = message.split(/\r?\n/);
+  const lines = message.split(/\r?\n/)
+  const rendered: string[] = []
 
-  return lines
-    .map((line) => {
-      const trimmed = line.trim();
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index]
+    const trimmed = line.trim()
 
-      const downloadMatch = trimmed.match(
-        /^Download link(?:\s*\(valid for 7 days\))?:\s*(https?:\/\/\S+)$/i
-      );
+    const downloadMatch = trimmed.match(
+      /^Download link(?:\s*\(valid for 7 days\))?:\s*(https?:\/\/\S+)$/i
+    )
 
-      if (downloadMatch) {
-        const url = escapeHtml(downloadMatch[1]);
+    if (downloadMatch) {
+      const downloadUrl = escapeHtml(downloadMatch[1])
+      const nextLine = lines[index + 1]?.trim() || ""
+      const previewMatch = nextLine.match(
+        /^Preview CID:\s*([a-zA-Z0-9._-]+)$/i
+      )
 
-        return `
-          <div style="margin:14px 0 18px;">
-            <a
-              href="${url}"
-              target="_blank"
-              rel="noopener noreferrer"
-              style="
-                display:inline-block;
-                background:${BRAND.forest};
-                color:${BRAND.white};
-                text-decoration:none;
-                font-family:Arial,sans-serif;
-                font-weight:700;
-                font-size:14px;
-                padding:13px 20px;
-                border-radius:8px;
-              "
+      const previewHtml = previewMatch
+        ? `
+            <td
+              width="150"
+              valign="top"
+              style="width:150px;padding:0 16px 0 0;"
             >
-              Download file
-            </a>
-            <div style="margin-top:7px;font-family:Arial,sans-serif;font-size:12px;color:${BRAND.muted};">
-              Secure link · valid for 7 days
-            </div>
-          </div>
-        `;
+              <img
+                src="cid:${escapeHtml(previewMatch[1])}"
+                width="134"
+                alt="3D model preview"
+                style="
+                  display:block;
+                  width:134px;
+                  max-width:134px;
+                  height:auto;
+                  border:1px solid ${BRAND.border};
+                  border-radius:10px;
+                  background:${BRAND.cream};
+                "
+              />
+            </td>
+          `
+        : ""
+
+      rendered.push(`
+        <table
+          role="presentation"
+          width="100%"
+          cellspacing="0"
+          cellpadding="0"
+          border="0"
+          style="
+            margin:14px 0 20px;
+            border-collapse:collapse;
+          "
+        >
+          <tr>
+            ${previewHtml}
+            <td valign="middle" style="padding:0;">
+              <a
+                href="${downloadUrl}"
+                target="_blank"
+                rel="noopener noreferrer"
+                style="
+                  display:inline-block;
+                  background:${BRAND.forest};
+                  color:${BRAND.white};
+                  text-decoration:none;
+                  font-family:Arial,sans-serif;
+                  font-weight:700;
+                  font-size:14px;
+                  padding:13px 20px;
+                  border-radius:8px;
+                "
+              >
+                Download file
+              </a>
+
+              <div
+                style="
+                  margin-top:8px;
+                  font-family:Arial,sans-serif;
+                  font-size:12px;
+                  line-height:1.5;
+                  color:${BRAND.muted};
+                "
+              >
+                Secure download link · valid for 7 days
+              </div>
+            </td>
+          </tr>
+        </table>
+      `)
+
+      if (previewMatch) {
+        index += 1
       }
 
-      if (!trimmed) {
-        return '<div style="height:8px;line-height:8px;">&nbsp;</div>';
-      }
+      continue
+    }
 
-      if (/^===.*===$/.test(trimmed)) {
-        return `
-          <h3 style="margin:18px 0 8px;color:${BRAND.forest};font-family:Arial,sans-serif;font-size:16px;line-height:1.4;">
-            ${escapeHtml(trimmed.replaceAll("=", "").trim())}
-          </h3>
-        `;
-      }
+    const previewOnlyMatch = trimmed.match(
+      /^Preview CID:\s*([a-zA-Z0-9._-]+)$/i
+    )
 
-      if (/^---.*---$/.test(trimmed)) {
-        return `
-          <h4 style="margin:16px 0 6px;color:${BRAND.charcoal};font-family:Arial,sans-serif;font-size:14px;line-height:1.4;">
-            ${escapeHtml(trimmed.replaceAll("-", "").trim())}
-          </h4>
-        `;
-      }
+    if (previewOnlyMatch) {
+      rendered.push(`
+        <div style="margin:12px 0 18px;">
+          <img
+            src="cid:${escapeHtml(previewOnlyMatch[1])}"
+            width="180"
+            alt="3D model preview"
+            style="
+              display:block;
+              width:180px;
+              max-width:100%;
+              height:auto;
+              border:1px solid ${BRAND.border};
+              border-radius:10px;
+              background:${BRAND.cream};
+            "
+          />
+        </div>
+      `)
+      continue
+    }
 
-      return `
-        <p style="margin:5px 0;color:${BRAND.charcoal};font-family:Arial,sans-serif;font-size:14px;line-height:1.6;">
-          ${escapeHtml(line)}
-        </p>
-      `;
-    })
-    .join("");
+    if (!trimmed) {
+      rendered.push(
+        '<div style="height:8px;line-height:8px;">&nbsp;</div>'
+      )
+      continue
+    }
+
+    if (/^===.*===$/.test(trimmed)) {
+      rendered.push(`
+        <h3
+          style="
+            margin:18px 0 8px;
+            color:${BRAND.forest};
+            font-family:Arial,sans-serif;
+            font-size:16px;
+            line-height:1.4;
+          "
+        >
+          ${escapeHtml(trimmed.replaceAll("=", "").trim())}
+        </h3>
+      `)
+      continue
+    }
+
+    if (/^---.*---$/.test(trimmed)) {
+      rendered.push(`
+        <h4
+          style="
+            margin:16px 0 6px;
+            color:${BRAND.charcoal};
+            font-family:Arial,sans-serif;
+            font-size:14px;
+            line-height:1.4;
+          "
+        >
+          ${escapeHtml(trimmed.replaceAll("-", "").trim())}
+        </h4>
+      `)
+      continue
+    }
+
+    rendered.push(`
+      <p
+        style="
+          margin:5px 0;
+          color:${BRAND.charcoal};
+          font-family:Arial,sans-serif;
+          font-size:14px;
+          line-height:1.6;
+        "
+      >
+        ${escapeHtml(line)}
+      </p>
+    `)
+  }
+
+  return rendered.join("")
 }
 
 function emailShell(content: string, preheader: string) {
@@ -357,6 +481,17 @@ function clientEmailHtml(name: string, isQuote: boolean) {
 async function sendContactEmails(input: z.infer<typeof contactInput>) {
   const resend = getResendClient();
   const attachments = createAttachments(input.files);
+  const previewAttachments = input.previews?.map((preview) => ({
+    filename: preview.fileName,
+    content: preview.content,
+    contentId: preview.contentId,
+    content_type: preview.contentType || "image/jpeg",
+  }));
+
+  const ownerAttachments = [
+    ...(attachments || []),
+    ...(previewAttachments || []),
+  ];
 
   console.log("[EMAIL CONTACT]", {
     to: TO_EMAIL,
@@ -365,6 +500,7 @@ async function sendContactEmails(input: z.infer<typeof contactInput>) {
     filesCount: input.files?.length || 0,
     filesNames: input.files?.map((file) => file.name) || [],
     attachmentsCount: attachments?.length || 0,
+    previewCount: previewAttachments?.length || 0,
   });
 
   if (!resend) {
@@ -381,7 +517,7 @@ async function sendContactEmails(input: z.infer<typeof contactInput>) {
     replyTo: input.email,
     subject: `[KiwiKoru] ${input.subject} — ${input.name}`,
     html: ownerEmailHtml(input, attachments?.length || 0),
-    attachments,
+    attachments: ownerAttachments.length > 0 ? ownerAttachments : undefined,
   });
 
   if (ownerEmail.error) {
