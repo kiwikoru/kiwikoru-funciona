@@ -2,12 +2,12 @@ import ScrollReveal from '../components/ScrollReveal'
 import { Check } from 'lucide-react'
 
 const credibilityTags = [
-  '10+ Years Experience',
-  'Industrial Designer',
+  'Interdisciplinary Team',
+  'Industrial Design Studio',
   'Product Development',
   'Rapid Prototyping',
-  'Automotive Components',
-  'Industrial Solutions',
+  '3D Printing Solutions',
+  'Problem Solving',
   'NZ Based',
 ]
 
@@ -19,47 +19,70 @@ export default function FounderSection() {
           {/* Image */}
           <ScrollReveal>
             <div className="relative mx-auto lg:mx-0 max-w-md">
-              <div className="rounded-2xl overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.08)] border border-gray-100">
+              <div className="rounded-3xl overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.08)] border border-gray-100 bg-white">
                 <img
-                  src="/images/founder.jpg"
-                  alt="Industrial designer and founder of KiwiKoru 3D in the workshop"
+                  src="/images/estudio-dit-team.png"
+                  alt="Interdisciplinary industrial design team working in a 3D printing studio"
                   className="w-full aspect-[3/4] object-cover"
                   loading="lazy"
                   width="600"
                   height="800"
                 />
               </div>
-              {/* Subtle decorative accent */}
-              <div className="absolute -bottom-4 -right-4 w-24 h-24 border border-gold/20 rounded-2xl -z-10" aria-hidden="true" />
-              <div className="absolute -top-4 -left-4 w-16 h-16 border border-forest/10 rounded-2xl -z-10" aria-hidden="true" />
+
+              {/* Decorative accents */}
+              <div
+                className="absolute -bottom-4 -right-4 w-24 h-24 border border-gold/20 rounded-3xl -z-10"
+                aria-hidden="true"
+              />
+              <div
+                className="absolute -top-4 -left-4 w-16 h-16 border border-forest/10 rounded-3xl -z-10"
+                aria-hidden="true"
+              />
             </div>
           </ScrollReveal>
 
           {/* Content */}
           <ScrollReveal>
             <div>
-              <p className="text-gold text-xs font-semibold tracking-[0.2em] uppercase mb-3">The Maker Behind It All</p>
+              <p className="text-gold text-xs font-semibold tracking-[0.2em] uppercase mb-3">
+                The Team Behind It All
+              </p>
+
               <h2 className="text-3xl md:text-4xl font-bold text-charcoal leading-tight">
                 Experience Behind Every Project
               </h2>
-              <p className="mt-3 text-lg font-semibold text-charcoal">Rod Castagno</p>
-              <p className="text-xs text-gray-400 tracking-wide uppercase">an industrial designer</p>
+
+              <p className="mt-3 text-lg font-semibold text-charcoal">
+                Estudio Dit.
+              </p>
+
+              <p className="text-xs text-gray-400 tracking-wide uppercase">
+                an interdisciplinary industrial design team
+              </p>
+
               <div className="mt-6 space-y-4 text-gray-600 text-sm leading-relaxed">
                 <p>
-                  Rod leads KiwiKoru with over a decade of hands-on experience
-                  in product development, rapid prototyping, and digital manufacturing. Every project
-                  that comes through the workshop benefits from a deep understanding of design for
-                  manufacturing, material selection, and production optimisation.
+                  KiwiKoru is supported by <strong>Estudio Dit.</strong>, an
+                  interdisciplinary team with a strong background in industrial
+                  design, product development, rapid prototyping, and digital
+                  manufacturing. Every project benefits from a collaborative
+                  approach that combines creative thinking with practical,
+                  production-focused solutions.
                 </p>
+
                 <p>
-                  From automotive components and industrial brackets to consumer product prototypes
-                  and replacement parts — the approach is always the same: understand the problem,
-                  design the solution, and deliver parts that work. No shortcuts, no compromises.
+                  From functional prototypes and replacement parts to custom
+                  components and industrial applications, the process always
+                  begins with understanding the problem clearly and developing a
+                  solution that is efficient, manufacturable, and fit for
+                  purpose.
                 </p>
+
                 <p>
-                  Backed by a team of designers and engineers ready to solve any challenge.
-                  Based in Whangārei, Northland, proudly serving clients across New Zealand
-                  with a passion for solving real problems through efficient design.
+                  Based in Whangārei, Northland, KiwiKoru and Estudio Dit. work
+                  together to deliver thoughtful design, reliable 3D printing,
+                  and real-world problem solving for clients across New Zealand.
                 </p>
               </div>
 
