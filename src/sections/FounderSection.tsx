@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import ScrollReveal from '../components/ScrollReveal'
 import { Check } from 'lucide-react'
 
@@ -12,8 +13,32 @@ const credibilityTags = [
 ]
 
 export default function FounderSection() {
+  const [imagePosition, setImagePosition] = useState(50)
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const section = document.getElementById('estudio-dit-section')
+      if (!section) return
+
+      const rect = section.getBoundingClientRect()
+      const windowHeight = window.innerHeight
+
+      const progress =
+        1 - Math.min(Math.max(rect.top / windowHeight, 0), 1)
+
+      const position = 25 + progress * 50
+
+      setImagePosition(position)
+    }
+
+    handleScroll()
+    window.addEventListener('scroll', handleScroll, { passive: true })
+
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
   return (
-    <section className="py-24 bg-cream">
+    <section id="estudio-dit-section" className="py-24 bg-cream">
       <div className="max-w-7xl mx-auto px-6">
         <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
           {/* Image */}
@@ -23,7 +48,10 @@ export default function FounderSection() {
                 <img
                   src="/images/estudio-dit-team.png"
                   alt="Interdisciplinary industrial design team working in a 3D printing studio"
-                  className="w-full aspect-[3/4] object-cover"
+                  className="w-full aspect-[3/4] object-cover transition-[object-position] duration-300 ease-out"
+                  style={{
+                    objectPosition: `${imagePosition}% center`,
+                  }}
                   loading="lazy"
                   width="600"
                   height="800"
