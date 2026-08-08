@@ -29,13 +29,14 @@ export default function App() {
 
       <main id="main-content" className="flex-1">
         <Routes>
-          <Route path="/" element={<Home />} />
+        <Route path="/" element={<Home />} />
           <Route path="/services" element={<Services />} />
           <Route path="/materials" element={<Materials />} />
           <Route path="/quote" element={<Quote />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/youshies" element={<Youshies />} />
+          <Route path="/youshie-me" element={<Youshies />} />
         </Routes>
       </main>
 

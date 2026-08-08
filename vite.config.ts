@@ -24,6 +24,10 @@ export default defineConfig({
   build: {
     outDir: 'dist/public',
     rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        youshieMe: path.resolve(__dirname, 'youshie-me.html'),
+      },
       output: {
         manualChunks: {
           three: ['three', '@react-three/fiber', '@react-three/drei'],
